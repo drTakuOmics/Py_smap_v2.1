@@ -1,0 +1,51 @@
+# sample parameter file for a global search
+# any line with a pound symbol is ignored
+#
+
+# the function to run:
+function search_global
+
+# unambiguous paths to the search elements (input image, reference structure) and output directory:
+imageFile /opt/smap/image/061518_F_0021crop_search.mrc
+
+modelFile /opt/smap/model/6ek0_LSU.cif
+#modelFile /opt/smap/model/6ek0_SSU_body.cif
+#modelFile /opt/smap/model/6ek0_SSU_head.cif
+
+outputDir /opt/smap/result/061518_F_2012crop-6ek0_LSU
+
+# properties of the image:
+aPerPix 1.032
+defocus 4182.0 2953.0 -46.8
+defocus_format CTFFind
+T_sample 200
+
+# properties of the microscope:
+V_acc 300000.0
+Cs 0.000001
+Cc 0.0027
+deltaE 0.7
+a_i 0.000050
+
+# search specs:
+aPerPix_search 1.5
+angle_inc 3.8
+#rotationsFile /opt/smap/rotation/hopf_R4.txt
+df_inc 53.25
+
+# optimization specs:
+optThr 7.0
+range_degrees 2.0
+inc_degrees 0.5
+qThr 10
+dThr 10
+
+# number of GPU boards to use:
+nCores 3
+
+# optional parameters:
+keep_scratch_flag 0
+maskCrossFlag 1
+psdFilterFlag 1
+optimize_flag 1
+arbThr 6.0
