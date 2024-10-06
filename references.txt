@@ -1,0 +1,9 @@
+REFERENCES
+
+This code makes use of modified versions of the following external code:
+1. ReadMRC and associated code - F. Sigworth; File ID #27021, https://www.mathworks.com/matlabcentral/fileexchange/
+2. fastPDBread - https://www.mathworks.com/matlabcentral/fileexchange/35009-a-fast-method-of-reading-data-from-pdb-files/all_files
+3. bindata (P. Mineault; https://xcorr.net/?p=3326, http://www-pord.ucsd.edu/~matlab/bin.htm
+4. parametrizeScFac.m from InSilicoTEM, as described in Vulovic M. et al., Image formation modeling in cryo-electron microscopy, J. Struct. Biol. (2013) 183(1):19-32.
+5. Rotation matrix sets were generated using code referenced in: Generating Uniform Incremental Grids on SO(3) Using the Hopf Fibrations, International Journal of Robotics Research, IJRR 2009 Anna Yershova, Swati Jain, Steven M. LaValle, and Julie C. Mitchell.
+6. GPU-accelerated matlab-executable FFT: Himes, B.A., Zhang, P. emClarity: software for high-resolution cryo-electron tomography and subtomogram averaging. Nat Methods 15, 955–961 (2018). https://doi.org/10.1038/s41592-018-0167-z
