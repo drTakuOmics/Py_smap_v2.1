@@ -12,13 +12,12 @@ smap_v2.1 is a program for detecting unlabeled macromolecules in 2D Cryo-EM imag
 This repository includes source code, executables, and a containerized Docker environment to allow users to calculate new search models from solved high-resolution structures, and to employ those or other high-resolution .mrc-formatted structural volumes for target detection in pre-processed high-resolution 2D images of crowded molecular environments.
 
 
-SYSTEM REQUIREMENTS
+SYSTEM RECOMMENDATIONS
 
 -64-bit Ubuntu (tested using 6.8.0-40-generic \#40~22.04.3-Ubuntu, x86_64)
+-minimal hardware configuration tested: Intel(R) Xeon(R) Gold 5218R CPU @ 2.10GHz (x80), 192 GB RAM, 3+ A5000 boards. Other NVIDIA-compatible GPU boards (GeForce GTX1080 or equivalent, with 8+ GB onboard memory) are also acceptable for most applications; runtime is reduced by maximizing single-precision FLOPS across boards (tested up to ~544 TFLOPS)
 
--minimal hardware configuration tested: Intel(R) Xeon(R) Gold 5218R CPU @ 2.10GHz (x80), 192 GB RAM, 3+ A5000 boards
-
--1 or more NVDIA-compatible GPU boards (NVIDIA GeForce GTX1080 or equivalent, with 8+ GB onboard memory; wall-clock time scales roughly inversely with total single-precision FLOPS available, as tested using up to 544 TFLOPs systems)
+-1 or more NVDIA-compatible GPU boards (NVIDIA GeForce GTX1080 or equivalent, with 8+ GB onboard memory);
 
 -Docker configured for the nvidia-container-toolkit
 
