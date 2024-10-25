@@ -1,15 +1,23 @@
 # smap_v2.1
 smap_v2.1 installation and usage notes
+
 v2.1 (25 Oct. 2024)
+
 J. Peter Rickgauer
+
 rickgauerj@janelia.hhmi.org
 
 
 SYSTEM REQUIREMENTS
+
 -64-bit Ubuntu (tested using 6.8.0-40-generic \#40~22.04.3-Ubuntu, x86_64)
+
 -minimal hardware configuration tested:
+
 	-Intel(R) Xeon(R) Gold 5218R CPU @ 2.10GHz (x80), 192 GB RAM, 3+ A5000 boards
+
 -1 or more NVDIA-compatible GPU boards (NVIDIA GeForce GTX1080 or equivalent, with 8+ GB onboard memory; wall-clock time scales roughly inversely with total single-precision FLOPS available, as tested using up to 544 TFLOPs systems)
+
 -Docker configured for the nvidia-container-toolkit
 
 
@@ -82,98 +90,156 @@ INPUT FILE PARAMETERS
 The sample_search.par file included in the landing directory includes descriptions (commented, following a \# sign) for input parameters and values expected in [your_parfile.par]. Default/recommended values in [brackets], where applicable; any line beginning with a # sign is ignored.
 
 \# [function] [search_global]: the compiled function to run
+
 function search_global
 
 \# [nCores]: number of GPU boards to request:
+
 nCores 4
 
 \# [imageFile]: name of input image to search (.mrc). The input image should already be pre-processed (i.e., corrected for gain reference, motion-corrected by frame, and summed to form a single-frame .mrc file)
+
 imageFile /opt/smap/image/061518_F_0012_cropped.mrc
 
 \# [modelFile]: name of scattering potential volume to use for template generation (.cif file, as formatted in the examples within the models/ directory, or .mrc). If you provide an .mrc file (e.g., a scattering potential calculated from a previous search), it will use that file as the target instead of calculating a new one
+
 modelFile /opt/smap/model/6ek0_LSU.cif
+
 \#modelFile /opt/smap/model/5j5b_monster.pdb
 
 \# [bFactor]: assumed B-factor for all atoms if a new scattering potential is being calculated. Defaults to 0 if unlisted, and ignored if <modelFile> is a preexisting .mrc file
+
 bFactor 0
 
 \# [outputDir]: directory for output and scratch files
+
 outputDir /opt/smap/result/061518_F_0012_cropped-6ek0_LSU
 
 \# [aPerPix]: voxel or pitch assumed for the input image and model (in Angstroms)
+
 aPerPix 1.032
 
 \# [defocus]: astigmatic defocus parameters for the image (units: angstroms, angstroms, degrees) (see Rohou and Grigorieff, JSB 2015)
+
 defocus 4407.0 3189.0 -55.0
 
 \# search specs:
+
 \# [aPerPix_search]: pixel-pitch assumed for the search. If <aPerPix_search> differs from <aPerPix>, the image and scattering potential are resampled by a factor of <aPerPix>/<aPerPix_search> for the global search and refinement steps; for the final step (particle optimization), the original non-resampled image and SP are used
+
 aPerPix_search 1.5
 
 \# [rotationsFile] or <angle_inc>: two options to specify the set of rotations tested in the search. If <angle_inc> is used, a custom rotations file (rotations.txt) is written to the output directory during an early stage of the search.
+
 \# [rotationsFile] is an ASCII file (space-delimited) with a list of indexed 3x3 rotation matrices to employ during the search. Each 3x3 rotation matrix, R, included in the file should be normalized. 
+
 \# [angle_inc] specifies the average spacing between out-of-plane or in-plane rotations to search (you can additionally specify <psi_inc> as a new line of the .par file if you wish to provide a separate increment for in-plane rotations). Note that a typical high-resolution search with a ~3 A structure uses increments of ~1.88 degrees, increasing the runtime by ~8-fold.
+
 angle_inc 3.8
+
 \#rotationsFile /opt/smap/rotation/hopf_R3.txt
 
 \# [T_sample] []: estimated sample thickness (units: nanometers). Used together with <df_inc> to determine the range of assumed defocus planes to search
+
 T_sample 200
+
 \# [df_inc]: defocus step-size used in the global image search (units: nanometers) 
+
 df_inc 50
 
 \# microscope properties:
+
 \# [V_acc]: microscope accelerating voltage (units: volts)
+
 V_acc 300000.0
+
 \# [Cs]: spherical aberration coefficient (units: meters)
+
 Cs 0.000001
+
 \# [Cc]: chromatic aberration coefficient (units: meters)
+
 Cc 0.0027
+
 \# [deltaE]: energy spread of the source (units: eV)
+
 deltaE 0.7
+
 \# [a_i] [0.000050]: illumination aperture (units: radians)
+
 a_i 0.000050
 
 \# optimization specs:
+
 \# [optThr] [7.0]: minimum SNR (pre-flat fielded) needed to qualify a particle (cluster) for post-search refinement and optimization
+
 optThr 7.0
+
 \# [qThr] [10]: minimum angular distance (units: degrees) separating two above-threshold CC maxima included in a cluster
+
 qThr 10
+
 \# [dThr] [10]: minimum euclidean distance (units: Angstroms) separating two above-threshold CC maxima include in a cluster
+
 dThr 10
+
 \# [range_degrees] [2.0]: angular range searched during refinement (units: degrees). If the <angle_inc> parameter is passed to the global search, range_degrees is automatically set to <angle_inc> 
+
 range_degrees 2.0
+
 \# [inc_degrees] [0.5]: angular increment searched during refinement (units: degrees)
+
 inc_degrees 0.5
 
 \# optional parameters:	
+
 \# [arbThr] [6.0]: threshold CC value above which all values are saved (with corresponding pixel coordinates and rotation matrix indices). Values smaller than 6.0 may be explored but will slow down the search, and rapidly increase storage and memory demands
+
 arbThr 6.0
+
 \# [keep_scratch_flag] [0]: debugging flag that determines whether intermediate files in the scratch subdirectory are kept or deleted at the conclusion of a search
+
 keep_scratch_flag 0
+
 \# [margin_pix] [32]: Determines the margin near the image-edges in which CC values found during the search are excluded from refinement or optimization. Intended to minimize residual edge artifacts from camera artifacts
+
 margin_pix 32 
 
 
 FILES INCLUDED
 
 README.md: this readme file
+
 Dockerfile: used to rebuild a containerized environment on Ubuntu 22.04 systems allowing executables in the package to be invoked from a bash shell
+
 smap_run.sh: bash script to start a global search that invokes the compiled executable. Syntax to run is ./smap_run.sh [your_parfile.par]
+
 sample_search.par: sample parameter file
+
 smappoi_search_global: executable used during the global search
+
 image/061518_F_0012_[cropped or full].mrc: sample images to search, excerpted from mouse embryonic fibroblast cells imaged close to focus (~300 nm).
+
 model/6ek0_LSU.cif: large ribosomal subdomain excerpted from the original structure (Natchiar et al., Nature 2017) that can be used as a search model
+
 model/5j5b_monster.pdb: rearranged ~2 MDa bacterial ribosome structure that can be used as a control search (Cocozaki et al., PNAS 2016).
+
 rotation/hopf_R3.txt: sample [rotationsFile] entry, illustrating the format. Note that this provides only partial rotation coverage for a high-resolution search
 
 In subdirectory src/smap_tools/:
+
 smappoi_search_global.m: MATLAB source code for the algorithm. Includes embedded functions needed to run a search (e.g., parsing input files and calculating scattering potential volumes from .cif or .pdb format models)
+
 smappoi_search_local.m: MATLAB source code for constrained searches (not yet fully implemented)
+
 @smap/: MATLAB static methods library used by smappoi_search_global.m
+
 src/emClarity_FFT/: GPU-accelerated FFT code for MATLAB (https://github.com/StochasticAnalytics/emClarity.git)
 
 
+
 TROUBLESHOOTING HINTS
+
 The following worked for us to install both Docker and the nvidia-container-toolkit on an Ubuntu 22.04 system.
 
 Begin by checking to see if an older version of Docker is installed, and if so, uninstall it:
@@ -254,17 +320,24 @@ and to drop into the environment using:
 
 
 KNOWN ISSUES
+
 The parser for .pdb and .cif files has not been tested on the full range of possible .pdb and .cif file formats. If you encounter difficulties calculating scattering potentials, please first verify that the format matches one of the .cif or .pdb files provided in the model/ directory.
 
 
 REFERENCES
 
 This code makes use of modified versions of the following external code:
+
 1. ReadMRC.m and associated code - F. Sigworth; File ID \#27021, https://www.mathworks.com/matlabcentral/fileexchange/
+
 2. fastPDBread.m - https://www.mathworks.com/matlabcentral/fileexchange/35009-a-fast-method-of-reading-data-from-pdb-files/all_files
+
 3. bindata.m (P. Mineault; https://xcorr.net/?p=3326, http://www-pord.ucsd.edu/~matlab/bin.htm
+
 4. parametrizeScFac.m - from InSilicoTEM, as described in Vulovic M. et al., Image formation modeling in cryo-electron microscopy, J. Struct. Biol. (2013) 183(1):19-32.
+
 5. Rotation matrix sets were generated using code referenced in: Generating Uniform Incremental Grids on SO(3) Using the Hopf Fibrations, International Journal of Robotics Research, IJRR 2009 Anna Yershova, Swati Jain, Steven M. LaValle, and Julie C. Mitchell.
+
 6. GPU-accelerated matlab-executable FFT - Himes, B.A., Zhang, P. (https://github.com/StochasticAnalytics/emClarity.git)
 
 
