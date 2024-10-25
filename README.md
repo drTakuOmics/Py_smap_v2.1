@@ -32,26 +32,26 @@ to create a new interactive shell. You should land in the /opt/smap/ directory.
 
 SAMPLE RUN
 
-The container environment's entry point (/opt/smap/) includes compiled executables and a sample .par file (sample_search.par), and the structure and image files needed to run a search based on this .par file. If the number of GPU boards you wish to allocate for this is fewer than the number present on the system, you can modify sample_search.par to change the value of \<nCores\> in the file (additional details about .par files are provided below). To start the sample search, you can run:
+The container environment's entry point (/opt/smap/) includes compiled executables and a sample .par file (sample_search.par), and the structure and image files needed to run a search based on this .par file. If the number of GPU boards you wish to allocate for this is fewer than the number present on the system, you can modify sample_search.par to change the value of [nCores] in the file (additional details about .par files are provided below). To start the sample search, you can run:
 	
 	./smap_run.sh sample_search.par
 
-./smap_run.sh is a simple bash script with one expected input argument (name_of_your_parfile.par). The script should indicate that the search has been launched, and it should then run in the background. To view the progress on this search, you can follow changes to files in the \<outputDir\> directory as specified in the sample_search.par file (by default, it is /opt/smap/result/061518_F_0012_cropped-6ek0_LSU/).
+./smap_run.sh is a simple bash script with one expected input argument (name_of_your_parfile.par). The script should indicate that the search has been launched, and it should then run in the background. To view the progress on this search, you can follow changes to files in the [outputDir] directory as specified in the sample_search.par file (by default, it is /opt/smap/result/061518_F_0012_cropped-6ek0_LSU/).
 
-In the first step, a 3D .mrc file of the target molecule is calculated from the specified .cif file, which occurs in a temporary subdirectory of \<outputDir\>. This step takes about 4 minutes to complete for this LSU structure on our 4-board NVIDIA A5000 system. Once the work is complete and the model components are combined into two .mrc files representing electrostatic and scattering potential volumes (6ek0_LSU_EP.mrc and 6ek0_LSU_SP.mrc) in <outputDir>, along with the combined log files, the temporary directory is removed.
+In the first step, a 3D .mrc file of the target molecule is calculated from the specified .cif file, which occurs in a temporary subdirectory of [outputDir]. This step takes about 4 minutes to complete for this LSU structure on our 4-board NVIDIA A5000 system. Once the work is complete and the model components are combined into two .mrc files representing electrostatic and scattering potential volumes (6ek0_LSU_EP.mrc and 6ek0_LSU_SP.mrc) in <outputDir>, along with the combined log files, the temporary directory is removed.
 
-In the second step, the scattering potential file volume is then used in an undersampled HRTM search of the image specified by \<imageFile\>. This step takes about 6 minutes to complete on our 4-board NVIDIA A5000 system for the cropped (864x864-pixel) image, and about 23 minutes for the full (3456x3456-pixel) image. Note that this search only samples a subset of the rotations needed to ensure complete coverage of orientation space at high resolution; a more typical search set will sample ~2.5x10^6 orientations (~8x the number tested here). To explore this crucial parameter, please see the section below on input file parameters. 
+In the second step, the scattering potential file volume is then used in an undersampled HRTM search of the image specified by [imageFile]. This step takes about 6 minutes to complete on our 4-board NVIDIA A5000 system for the cropped (864x864-pixel) image, and about 23 minutes for the full (3456x3456-pixel) image. Note that this search only samples a subset of the rotations needed to ensure complete coverage of orientation space at high resolution; a more typical search set will sample ~2.5x10^6 orientations (~8x the number tested here). To explore this crucial parameter, please see the section below on input file parameters. 
 
-When completed, the \<outputDir\> for sample_search.par should include the following files:
+When completed, the [outputDir] for sample_search.par should include the following files:
 
 	1. sample_search.par: a copy of the .par file used in the search
-	2. searchImage.mrc: the image used for cross-correlation (pre-whitened if the \<psdFilterFlag\> input parameter is set to 1)
+	2. searchImage.mrc: the image used for cross-correlation (pre-whitened if the [psdFilterFlag] input parameter is set to 1)
 	3. search_SH.txt: For each specified SNR value (column 1), a list of survival histograms from flat-fielded search values determined in the search (column 3), or as expected for an equal number of values drawn from a Gaussian Normal distribution (column 2). Provides a survival histogram for the expected noise distribution (column 2 vs. column 1) and for the encountered SNR distribution for the target-search (column 3 vs. column 1)
-	4. search_vals.mrc: maximum intensity projection (MIP) of all cross-correlation (CC) values above \<arbThr\> from each pixel in the image, after pixelwise flat-fielding (the input parameter <arbThr> is described below). Each section in the stack corresponds to one assumed defocus within the evenly-spaced range specified by the <df_inc> and <T_sample> input parameters
-	5. search_qInds.mrc: indices of rotation matrices at each pixel in the MIP that produced the corresponding CC value. Multiple planes correspond to multiple assumed defocuses within the evenly-spaced range specified by the \<df_inc\> and <T_sample> input parameters
-	6. search_mean.mrc: mean CC values at each pixel, calculated across all CCs in the search. Multiple planes correspond to multiple assumed defocuses within the evenly-spaced range specified by the \<df_inc\> and <T_sample> input parameters
-	7. search_SD.mrc: standard deviation (SD) of all CC values at each pixel, calculated across all CCs in the search. Multiple planes correspond to multiple assumed defocuses within the evenly-spaced range specified by the \<df_inc\> and <T_sample> input parameters
-	8. search_listAboveThreshold.dat: list of all CC values encountered during the search (prior to flatfielding, refinement, or optimization) above the threshold specified by the \<arbThr\> input parameter. Values are double-precision format and represent rotation index, a single coordinate location indexed against (x coordinate, y coordinate, defocus plane), and SNR value
+	4. search_vals.mrc: maximum intensity projection (MIP) of all cross-correlation (CC) values above [arbThr] from each pixel in the image, after pixelwise flat-fielding (the input parameter <arbThr> is described below). Each section in the stack corresponds to one assumed defocus within the evenly-spaced range specified by the <df_inc> and <T_sample> input parameters
+	5. search_qInds.mrc: indices of rotation matrices at each pixel in the MIP that produced the corresponding CC value. Multiple planes correspond to multiple assumed defocuses within the evenly-spaced range specified by the [df_inc] and <T_sample> input parameters
+	6. search_mean.mrc: mean CC values at each pixel, calculated across all CCs in the search. Multiple planes correspond to multiple assumed defocuses within the evenly-spaced range specified by the [df_inc] and <T_sample> input parameters
+	7. search_SD.mrc: standard deviation (SD) of all CC values at each pixel, calculated across all CCs in the search. Multiple planes correspond to multiple assumed defocuses within the evenly-spaced range specified by the [df_inc] and <T_sample> input parameters
+	8. search_listAboveThreshold.dat: list of all CC values encountered during the search (prior to flatfielding, refinement, or optimization) above the threshold specified by the [arbThr] input parameter. Values are double-precision format and represent rotation index, a single coordinate location indexed against (x coordinate, y coordinate, defocus plane), and SNR value
 	9. highVals.txt: list of initial (pre-flat fielded and -refined) values from the search exceeding the expected SNR cutoff threshold (=sqrt(2) * erfcinv(2/N_samples)). Sorted ascending by CC value. Columns indicate: [rotation_index CC coord1 coord2 defocus_index]
 	10. search_SDs.dat: list of standard deviations (SD) for all templates tested in the search, prior to each template's normalization (i.e., setting the SD to one). Values are single-precision format and ordered ascending by searched rotation index
 	11. list_final.txt: list of particles detected after flat-fielding, thresholding, and refinement. Columns indicate:
@@ -79,78 +79,78 @@ When completed, the \<outputDir\> for sample_search.par should include the follo
 
 INPUT FILE PARAMETERS
 
-The sample_search.par file included in the landing directory includes descriptions (commented, following a # sign) for input parameters and values expected in \<your_parfile.par\>. Default/recommended values in [brackets], where applicable; any line beginning with a # sign is ignored.
+The sample_search.par file included in the landing directory includes descriptions (commented, following a # sign) for input parameters and values expected in [your_parfile.par]. Default/recommended values in [brackets], where applicable; any line beginning with a # sign is ignored.
 
-# \<function\> [search_global]: the compiled function to run
+# [function] [search_global]: the compiled function to run
 function search_global
 
-# \<nCores\>: number of GPU boards to request:
+# [nCores]: number of GPU boards to request:
 nCores 4
 
-# \<imageFile\>: name of input image to search (.mrc). The input image should already be pre-processed (i.e., corrected for gain reference, motion-corrected by frame, and summed to form a single-frame .mrc file)
+# [imageFile]: name of input image to search (.mrc). The input image should already be pre-processed (i.e., corrected for gain reference, motion-corrected by frame, and summed to form a single-frame .mrc file)
 imageFile /opt/smap/image/061518_F_0012_cropped.mrc
 
-# \<modelFile\>: name of scattering potential volume to use for template generation (.cif file, as formatted in the examples within the models/ directory, or .mrc). If you provide an .mrc file (e.g., a scattering potential calculated from a previous search), it will use that file as the target instead of calculating a new one
+# [modelFile]: name of scattering potential volume to use for template generation (.cif file, as formatted in the examples within the models/ directory, or .mrc). If you provide an .mrc file (e.g., a scattering potential calculated from a previous search), it will use that file as the target instead of calculating a new one
 modelFile /opt/smap/model/6ek0_LSU.cif
 #modelFile /opt/smap/model/5j5b_monster.pdb
 
-# \<bFactor\>: assumed B-factor for all atoms if a new scattering potential is being calculated. Defaults to 0 if unlisted, and ignored if <modelFile> is a preexisting .mrc file
+# [bFactor]: assumed B-factor for all atoms if a new scattering potential is being calculated. Defaults to 0 if unlisted, and ignored if <modelFile> is a preexisting .mrc file
 bFactor 0
 
-# \<outputDir\>: directory for output and scratch files
+# [outputDir]: directory for output and scratch files
 outputDir /opt/smap/result/061518_F_0012_cropped-6ek0_LSU
 
-# \<aPerPix\>: voxel or pitch assumed for the input image and model (in Angstroms)
+# [aPerPix]: voxel or pitch assumed for the input image and model (in Angstroms)
 aPerPix 1.032
 
-# \<defocus\>: astigmatic defocus parameters for the image (units: angstroms, angstroms, degrees) (see Rohou and Grigorieff, JSB 2015)
+# [defocus]: astigmatic defocus parameters for the image (units: angstroms, angstroms, degrees) (see Rohou and Grigorieff, JSB 2015)
 defocus 4407.0 3189.0 -55.0
 
 # search specs:
-# \<aPerPix_search\>: pixel-pitch assumed for the search. If <aPerPix_search> differs from <aPerPix>, the image and scattering potential are resampled by a factor of <aPerPix>/<aPerPix_search> for the global search and refinement steps; for the final step (particle optimization), the original non-resampled image and SP are used
+# [aPerPix_search]: pixel-pitch assumed for the search. If <aPerPix_search> differs from <aPerPix>, the image and scattering potential are resampled by a factor of <aPerPix>/<aPerPix_search> for the global search and refinement steps; for the final step (particle optimization), the original non-resampled image and SP are used
 aPerPix_search 1.5
 
-# \<rotationsFile\> or <angle_inc>: two options to specify the set of rotations tested in the search. If <angle_inc> is used, a custom rotations file (rotations.txt) is written to the output directory during an early stage of the search.
-# \<rotationsFile\> is an ASCII file (space-delimited) with a list of indexed 3x3 rotation matrices to employ during the search. Each 3x3 rotation matrix, R, included in the file should be normalized. 
-# \<angle_inc\> specifies the average spacing between out-of-plane or in-plane rotations to search (you can additionally specify <psi_inc> as a new line of the .par file if you wish to provide a separate increment for in-plane rotations). Note that a typical high-resolution search with a ~3 A structure uses increments of ~1.88 degrees, increasing the runtime by ~8-fold.
+# [rotationsFile] or <angle_inc>: two options to specify the set of rotations tested in the search. If <angle_inc> is used, a custom rotations file (rotations.txt) is written to the output directory during an early stage of the search.
+# [rotationsFile] is an ASCII file (space-delimited) with a list of indexed 3x3 rotation matrices to employ during the search. Each 3x3 rotation matrix, R, included in the file should be normalized. 
+# [angle_inc] specifies the average spacing between out-of-plane or in-plane rotations to search (you can additionally specify <psi_inc> as a new line of the .par file if you wish to provide a separate increment for in-plane rotations). Note that a typical high-resolution search with a ~3 A structure uses increments of ~1.88 degrees, increasing the runtime by ~8-fold.
 angle_inc 3.8
 #rotationsFile /opt/smap/rotation/hopf_R3.txt
 
-# \<T_sample\> []: estimated sample thickness (units: nanometers). Used together with <df_inc> to determine the range of assumed defocus planes to search
+# [T_sample] []: estimated sample thickness (units: nanometers). Used together with <df_inc> to determine the range of assumed defocus planes to search
 T_sample 200
-# \<df_inc\>: defocus step-size used in the global image search (units: nanometers) 
+# [df_inc]: defocus step-size used in the global image search (units: nanometers) 
 df_inc 50
 
 # microscope properties:
-# \<V_acc\>: microscope accelerating voltage (units: volts)
+# [V_acc]: microscope accelerating voltage (units: volts)
 V_acc 300000.0
-# \<Cs\>: spherical aberration coefficient (units: meters)
+# [Cs]: spherical aberration coefficient (units: meters)
 Cs 0.000001
-# \<Cc\>: chromatic aberration coefficient (units: meters)
+# [Cc]: chromatic aberration coefficient (units: meters)
 Cc 0.0027
-# \<deltaE\>: energy spread of the source (units: eV)
+# [deltaE]: energy spread of the source (units: eV)
 deltaE 0.7
-# \<a_i\> [0.000050]: illumination aperture (units: radians)
+# [a_i] [0.000050]: illumination aperture (units: radians)
 a_i 0.000050
 
 # optimization specs:
-# \<optThr\> [7.0]: minimum SNR (pre-flat fielded) needed to qualify a particle (cluster) for post-search refinement and optimization
+# [optThr] [7.0]: minimum SNR (pre-flat fielded) needed to qualify a particle (cluster) for post-search refinement and optimization
 optThr 7.0
-# \<qThr\> [10]: minimum angular distance (units: degrees) separating two above-threshold CC maxima included in a cluster
+# [qThr] [10]: minimum angular distance (units: degrees) separating two above-threshold CC maxima included in a cluster
 qThr 10
-# \<dThr\> [10]: minimum euclidean distance (units: Angstroms) separating two above-threshold CC maxima include in a cluster
+# [dThr] [10]: minimum euclidean distance (units: Angstroms) separating two above-threshold CC maxima include in a cluster
 dThr 10
-# \<range_degrees\> [2.0]: angular range searched during refinement (units: degrees). If the <angle_inc> parameter is passed to the global search, range_degrees is automatically set to <angle_inc> 
+# [range_degrees] [2.0]: angular range searched during refinement (units: degrees). If the <angle_inc> parameter is passed to the global search, range_degrees is automatically set to <angle_inc> 
 range_degrees 2.0
-# \<inc_degrees\> [0.5]: angular increment searched during refinement (units: degrees)
+# [inc_degrees] [0.5]: angular increment searched during refinement (units: degrees)
 inc_degrees 0.5
 
 # optional parameters:	
-# \<arbThr\> [6.0]: threshold CC value above which all values are saved (with corresponding pixel coordinates and rotation matrix indices). Values smaller than 6.0 may be explored but will slow down the search, and rapidly increase storage and memory demands
+# [arbThr] [6.0]: threshold CC value above which all values are saved (with corresponding pixel coordinates and rotation matrix indices). Values smaller than 6.0 may be explored but will slow down the search, and rapidly increase storage and memory demands
 arbThr 6.0
-# \<keep_scratch_flag\> [0]: debugging flag that determines whether intermediate files in the scratch subdirectory are kept or deleted at the conclusion of a search
+# [keep_scratch_flag] [0]: debugging flag that determines whether intermediate files in the scratch subdirectory are kept or deleted at the conclusion of a search
 keep_scratch_flag 0
-# \<margin_pix\> [32]: Determines the margin near the image-edges in which CC values found during the search are excluded from refinement or optimization. Intended to minimize residual edge artifacts from camera artifacts
+# [margin_pix] [32]: Determines the margin near the image-edges in which CC values found during the search are excluded from refinement or optimization. Intended to minimize residual edge artifacts from camera artifacts
 margin_pix 32 
 
 
@@ -158,13 +158,13 @@ FILES INCLUDED
 
 README.md: this readme file
 Dockerfile: used to rebuild a containerized environment on Ubuntu 22.04 systems allowing executables in the package to be invoked from a bash shell
-smap_run.sh: bash script to start a global search that invokes the compiled executable. Syntax to run is ./smap_run.sh \<your_parfile.par\>
+smap_run.sh: bash script to start a global search that invokes the compiled executable. Syntax to run is ./smap_run.sh [your_parfile.par]
 sample_search.par: sample parameter file
 smappoi_search_global: executable used during the global search
 image/061518_F_0012_[cropped or full].mrc: sample images to search, excerpted from mouse embryonic fibroblast cells imaged close to focus (~300 nm).
 model/6ek0_LSU.cif: large ribosomal subdomain excerpted from the original structure (Natchiar et al., Nature 2017) that can be used as a search model
 model/5j5b_monster.pdb: rearranged ~2 MDa bacterial ribosome structure that can be used as a control search (Cocozaki et al., PNAS 2016).
-rotation/hopf_R3.txt: sample \<rotationsFile\> entry, illustrating the format. Note that this provides only partial rotation coverage for a high-resolution search
+rotation/hopf_R3.txt: sample [rotationsFile] entry, illustrating the format. Note that this provides only partial rotation coverage for a high-resolution search
 
 In subdirectory src/smap_tools/:
 smappoi_search_global.m: MATLAB source code for the algorithm. Includes embedded functions needed to run a search (e.g., parsing input files and calculating scattering potential volumes from .cif or .pdb format models)
@@ -191,7 +191,7 @@ Add the Docker repo:
 
 	echo \
 	"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-	$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list \> /dev/null
+	$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list ] /dev/null
 
 Install the Docker engine:
 
@@ -225,7 +225,7 @@ Then try the install again:
 
 Then configure Docker for the toolkit:
 
-	sudo tee /etc/docker/daemon.json \> /dev/null \<<EOF
+	sudo tee /etc/docker/daemon.json ] /dev/null &lt&ltEOF
 	{
 	    "runtimes": {
 	        "nvidia": {
