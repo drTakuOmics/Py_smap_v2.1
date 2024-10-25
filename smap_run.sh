@@ -1,21 +1,33 @@
 #!/bin/bash
-# script for execution of deployed applications inside Docker
-#
+# script for running compiled smap code inside Docker
 # Sets up the MATLAB Runtime environment for the current $ARCH and executes 
 # the specified command.
+# If the number of GPU boards requested in the .par file (nCores X) is greater than the number of boards visible to nvidia-smi -L, the lower of the two numbers is used
 #
+# syntax: ./smap_run.sh <parfile.par>
 
 exe_name=$0
 exe_dir=`dirname "$0"`
 paramsFile=$1
-echo ${exe_name}
 echo ${paramsFile}
 
-fxnToRun=(`grep 'function' $paramsFile | grep '^[^#;]' | sed 's/^.* //'`)
+available_gpus=(`nvidia-smi -L | wc -l`)
 nToRun=(`grep 'nCores' $paramsFile | grep '^[^#;]' | sed 's/^.* //'`)
+if [ "$available_gpus" -lt "$nToRun" ]; then
+    echo "Updating nCores in $paramsFile to $available_gpus (number of available GPUs)"
+    
+    # Update the nCores line in the .par file
+    sed -i "s/^nCores.*/nCores $available_gpus/" "$paramsFile"
+
+    # Set nCores to the new value
+    nToRun=$available_gpus
+else
+    echo "nCores ($nToRun) is within the available GPU count ($available_gpus)."
+fi
+
+fxnToRun=(`grep 'function' $paramsFile | grep '^[^#;]' | sed 's/^.* //'`)
 
 # Use the MCRROOT that is set in the Docker image environment
-# The MCRROOT environment variable should already be defined, so no need to parse compute.cfg
 echo "function to run is $fxnToRun ($nToRun boards requested)"
 echo "MATLAB Runtime libraries are located at ${MCRROOT}"
 
@@ -33,7 +45,6 @@ do
     echo starting on process $currentNum ...
     echo "${exe_dir}/smappoi_$fxnToRun $paramsFile $currentNum"
     ${exe_dir}/smappoi_$fxnToRun $paramsFile $currentNum > /dev/null &
-    ##${exe_dir}/smappoi_$fxnToRun $paramsFile $currentNum
     ((currentNum=currentNum+1))
 done
 exit

@@ -1,51 +1,70 @@
-# sample parameter file for a global search
-# any line with a pound symbol is ignored
-#
-
-# the function to run:
+# <function> [search_global]: the compiled function to run
 function search_global
 
-# unambiguous paths to the search elements (input image, reference structure) and output directory:
-imageFile /opt/smap/image/061518_F_0021crop_search.mrc
+# <nCores>: number of GPU boards to request:
+nCores 4
 
+# <imageFile>: name of input image to search (.mrc). The input image should already be pre-processed (i.e., corrected for gain reference, motion-corrected by frame, and summed to form a single-frame .mrc file)
+imageFile /opt/smap/image/061518_F_0012_cropped.mrc
+
+# <modelFile>: name of scattering potential volume to use for template generation (.cif file, as formatted in the examples within the models/ directory, or .mrc). If you provide an .mrc file (e.g., a scattering potential calculated from a previous search), it will use that file as the target instead of calculating a new one
 modelFile /opt/smap/model/6ek0_LSU.cif
-#modelFile /opt/smap/model/6ek0_SSU_body.cif
-#modelFile /opt/smap/model/6ek0_SSU_head.cif
+#modelFile /opt/smap/model/5j5b_monster.pdb
 
-outputDir /opt/smap/result/061518_F_2012crop-6ek0_LSU
+# <bFactor>: assumed B-factor for all atoms if a new scattering potential is being calculated. Defaults to 0 if unlisted, and ignored if <modelFile> is a preexisting .mrc file
+bFactor 0
 
-# properties of the image:
+# <outputDir>: directory for output and scratch files
+outputDir /opt/smap/result/061518_F_0012_cropped-6ek0_LSU
+
+# <aPerPix>: voxel or pitch assumed for the input image and model (in Angstroms)
 aPerPix 1.032
-defocus 4182.0 2953.0 -46.8
-defocus_format CTFFind
-T_sample 200
 
-# properties of the microscope:
-V_acc 300000.0
-Cs 0.000001
-Cc 0.0027
-deltaE 0.7
-a_i 0.000050
+# <defocus>: astigmatic defocus parameters for the image (units: angstroms, angstroms, degrees) (see Rohou and Grigorieff, JSB 2015)
+defocus 4407.0 3189.0 -55.0
 
 # search specs:
+# <aPerPix_search>: pixel-pitch assumed for the search. If <aPerPix_search> differs from <aPerPix>, the image and scattering potential are resampled by a factor of <aPerPix>/<aPerPix_search> for the global search and refinement steps; for the final step (particle optimization), the original non-resampled image and SP are used
 aPerPix_search 1.5
+# <rotationsFile> or <angle_inc>: two options to specify the set of rotations tested in the search. If <angle_inc> is used, a custom rotations file (rotations.txt) is written to the output directory during an early stage of the search.
+# <rotationsFile> is an ASCII file (space-delimited) with a list of indexed 3x3 rotation matrices to employ during the search. Each 3x3 rotation matrix, R, included in the file should be normalized. 
+# <angle_inc> specifies the average spacing between out-of-plane or in-plane rotations to search (you can additionally specify <psi_inc> as a new line of the .par file if you wish to provide a separate increment for in-plane rotations). Note that a typical high-resolution search with a ~3 A structure uses increments of ~1.88 degrees, increasing the runtime by ~8-fold.
 angle_inc 3.8
-#rotationsFile /opt/smap/rotation/hopf_R4.txt
-df_inc 53.25
+#rotationsFile /opt/smap/rotation/hopf_R3.txt
+# <T_sample> []: estimated sample thickness (units: nanometers). Used together with <df_inc> to determine the range of assumed defocus planes to search
+T_sample 200
+# <df_inc>: defocus step-size used in the global image search (units: nanometers) 
+df_inc 50
+
+# microscope properties:
+# <V_acc>: microscope accelerating voltage (units: volts)
+V_acc 300000.0
+# <Cs>: spherical aberration coefficient (units: meters)
+Cs 0.000001
+# <Cc>: chromatic aberration coefficient (units: meters)
+Cc 0.0027
+# <deltaE>: energy spread of the source (units: eV)
+deltaE 0.7
+# <a_i> [0.000050]: illumination aperture (units: radians)
+a_i 0.000050
 
 # optimization specs:
+# <optThr> [7.0]: minimum SNR (pre-flat fielded) needed to qualify a particle (cluster) for post-search refinement and optimization
 optThr 7.0
-range_degrees 2.0
-inc_degrees 0.5
+# <qThr> [10]: minimum angular distance (units: degrees) separating two above-threshold CC maxima included in a cluster
 qThr 10
+# <dThr> [10]: minimum euclidean distance (units: Angstroms) separating two above-threshold CC maxima include in a cluster
 dThr 10
+# <range_degrees> [2.0]: angular range searched during refinement (units: degrees). If the <angle_inc> parameter is passed to the global search, range_degrees is automatically set to <angle_inc> 
+range_degrees 2.0
+# <inc_degrees> [0.5]: angular increment searched during refinement (units: degrees)
+inc_degrees 0.5
 
-# number of GPU boards to use:
-nCores 3
-
-# optional parameters:
-keep_scratch_flag 0
-maskCrossFlag 1
-psdFilterFlag 1
-optimize_flag 1
+# optional parameters:	
+# <arbThr> [6.0]: threshold CC value above which all values are saved (with corresponding pixel coordinates and rotation matrix indices). Values smaller than 6.0 may be explored but will slow down the search, and rapidly increase storage and memory demands
 arbThr 6.0
+# <keep_scratch_flag> [0]: debugging flag that determines whether intermediate files in the scratch subdirectory are kept or deleted at the conclusion of a search
+keep_scratch_flag 0
+# <margin_pix> [32]: Determines the margin near the image-edges in which CC values found during the search are excluded from refinement or optimization. Intended to minimize residual edge artifacts from camera artifacts
+margin_pix 32 
+
