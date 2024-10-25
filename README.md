@@ -15,6 +15,7 @@ This repository includes source code, executables, and a containerized Docker en
 SYSTEM RECOMMENDATIONS
 
 -64-bit Ubuntu (tested using 6.8.0-40-generic \#40~22.04.3-Ubuntu, x86_64)
+
 -minimal hardware configuration tested: Intel(R) Xeon(R) Gold 5218R CPU @ 2.10GHz (x80), 192 GB RAM, 3+ A5000 boards. Other NVIDIA-compatible GPU boards (GeForce GTX1080 or equivalent, with 8+ GB onboard memory) are also acceptable for most applications; runtime is reduced by maximizing single-precision FLOPS across boards (tested up to ~544 TFLOPS)
 
 -Docker configured for the nvidia-container-toolkit
