@@ -7,6 +7,10 @@ J. Peter Rickgauer
 
 rickgauerj@janelia.hhmi.org
 
+smap_v2.1 is a program for detecting unlabeled macromolecules in 2D Cryo-EM images of cells that uses high-resolution template matching (HRTM; Rickgauer et al., eLife 2017; Rickgauer et al., BiorXiv 2020; Lucas et al., eLife 2021). High-resolution images are searched exhaustively to localize and align targets against an existing high-resolution structural model, and target validation is determined using a statistical approach that does not depend on the number of targets found in the image or on their similarities in an ensemble analysis, introducing new possibilities for detecting targets that are small or rare. Detected particles may be carried forward for further analysis, bearing in mind that most applications of conventional single-particle analysis (SPA) will yield reconstructions that resemble the template (Henderson, PNAS 2013; Van Heel, PNAS 2013); in such cases, excluding regions of novel structural interest from the search model before detection or further analysis is essential.
+
+This repository includes source code, executables, and a containerized Docker environment to allow users to calculate new search models from solved high-resolution structures, and to employ those or other high-resolution .mrc-formatted structural volumes for target detection in pre-processed high-resolution 2D images of crowded molecular environments.
+
 
 SYSTEM REQUIREMENTS
 
@@ -324,7 +328,7 @@ The parser for .pdb and .cif files has not been tested on the full range of poss
 
 REFERENCES
 
-This code makes use of modified versions of the following external code:
+smap_v2.1 makes use of the following external code:
 
 1. ReadMRC.m and associated code - F. Sigworth; File ID \#27021, https://www.mathworks.com/matlabcentral/fileexchange/
 
