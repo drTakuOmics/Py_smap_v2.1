@@ -12,9 +12,7 @@ SYSTEM REQUIREMENTS
 
 -64-bit Ubuntu (tested using 6.8.0-40-generic \#40~22.04.3-Ubuntu, x86_64)
 
--minimal hardware configuration tested:
-
-	-Intel(R) Xeon(R) Gold 5218R CPU @ 2.10GHz (x80), 192 GB RAM, 3+ A5000 boards
+-minimal hardware configuration tested: Intel(R) Xeon(R) Gold 5218R CPU @ 2.10GHz (x80), 192 GB RAM, 3+ A5000 boards
 
 -1 or more NVDIA-compatible GPU boards (NVIDIA GeForce GTX1080 or equivalent, with 8+ GB onboard memory; wall-clock time scales roughly inversely with total single-precision FLOPS available, as tested using up to 544 TFLOPs systems)
 
@@ -46,7 +44,7 @@ The container environment's entry point (/opt/smap/) includes compiled executabl
 
 ./smap_run.sh is a simple bash script with one expected input argument (name_of_your_parfile.par). The script should indicate that the search has been launched, and it should then run in the background. To view the progress on this search, you can follow changes to files in the [outputDir] directory as specified in the sample_search.par file (by default, it is /opt/smap/result/061518_F_0012_cropped-6ek0_LSU/).
 
-In the first step, a 3D .mrc file of the target molecule is calculated from the specified .cif file, which occurs in a temporary subdirectory of [outputDir]. This step takes about 4 minutes to complete for this LSU structure on our 4-board NVIDIA A5000 system. Once the work is complete and the model components are combined into two .mrc files representing electrostatic and scattering potential volumes (6ek0_LSU_EP.mrc and 6ek0_LSU_SP.mrc) in <outputDir>, along with the combined log files, the temporary directory is removed.
+In the first step, a 3D .mrc file of the target molecule is calculated from the specified .cif file, which occurs in a temporary subdirectory of [outputDir]. This step takes about 4 minutes to complete for this LSU structure on our 4-board NVIDIA A5000 system. Once the work is complete and the model components are combined into two .mrc files representing electrostatic and scattering potential volumes (6ek0_LSU_EP.mrc and 6ek0_LSU_SP.mrc) in [outputDir], along with the combined log files, the temporary directory is removed.
 
 In the second step, the scattering potential file volume is then used in an undersampled HRTM search of the image specified by [imageFile]. This step takes about 6 minutes to complete on our 4-board NVIDIA A5000 system for the cropped (864x864-pixel) image, and about 23 minutes for the full (3456x3456-pixel) image. Note that this search only samples a subset of the rotations needed to ensure complete coverage of orientation space at high resolution; a more typical search set will sample ~2.5x10^6 orientations (~8x the number tested here). To explore this crucial parameter, please see the section below on input file parameters. 
 
@@ -55,10 +53,10 @@ When completed, the [outputDir] for sample_search.par should include the followi
 	1. sample_search.par: a copy of the .par file used in the search
 	2. searchImage.mrc: the image used for cross-correlation (pre-whitened if the [psdFilterFlag] input parameter is set to 1)
 	3. search_SH.txt: For each specified SNR value (column 1), a list of survival histograms from flat-fielded search values determined in the search (column 3), or as expected for an equal number of values drawn from a Gaussian Normal distribution (column 2). Provides a survival histogram for the expected noise distribution (column 2 vs. column 1) and for the encountered SNR distribution for the target-search (column 3 vs. column 1)
-	4. search_vals.mrc: maximum intensity projection (MIP) of all cross-correlation (CC) values above [arbThr] from each pixel in the image, after pixelwise flat-fielding (the input parameter <arbThr> is described below). Each section in the stack corresponds to one assumed defocus within the evenly-spaced range specified by the <df_inc> and <T_sample> input parameters
-	5. search_qInds.mrc: indices of rotation matrices at each pixel in the MIP that produced the corresponding CC value. Multiple planes correspond to multiple assumed defocuses within the evenly-spaced range specified by the [df_inc] and <T_sample> input parameters
-	6. search_mean.mrc: mean CC values at each pixel, calculated across all CCs in the search. Multiple planes correspond to multiple assumed defocuses within the evenly-spaced range specified by the [df_inc] and <T_sample> input parameters
-	7. search_SD.mrc: standard deviation (SD) of all CC values at each pixel, calculated across all CCs in the search. Multiple planes correspond to multiple assumed defocuses within the evenly-spaced range specified by the [df_inc] and <T_sample> input parameters
+	4. search_vals.mrc: maximum intensity projection (MIP) of all cross-correlation (CC) values above [arbThr] from each pixel in the image, after pixelwise flat-fielding (the input parameter [arbThr] is described below). Each section in the stack corresponds to one assumed defocus within the evenly-spaced range specified by the [df_inc] and [T_sample] input parameters
+	5. search_qInds.mrc: indices of rotation matrices at each pixel in the MIP that produced the corresponding CC value. Multiple planes correspond to multiple assumed defocuses within the evenly-spaced range specified by the [df_inc] and [T_sample] input parameters
+	6. search_mean.mrc: mean CC values at each pixel, calculated across all CCs in the search. Multiple planes correspond to multiple assumed defocuses within the evenly-spaced range specified by the [df_inc] and [T_sample] input parameters
+	7. search_SD.mrc: standard deviation (SD) of all CC values at each pixel, calculated across all CCs in the search. Multiple planes correspond to multiple assumed defocuses within the evenly-spaced range specified by the [df_inc] and [T_sample] input parameters
 	8. search_listAboveThreshold.dat: list of all CC values encountered during the search (prior to flatfielding, refinement, or optimization) above the threshold specified by the [arbThr] input parameter. Values are double-precision format and represent rotation index, a single coordinate location indexed against (x coordinate, y coordinate, defocus plane), and SNR value
 	9. highVals.txt: list of initial (pre-flat fielded and -refined) values from the search exceeding the expected SNR cutoff threshold (=sqrt(2) * erfcinv(2/N_samples)). Sorted ascending by CC value. Columns indicate: [rotation_index CC coord1 coord2 defocus_index]
 	10. search_SDs.dat: list of standard deviations (SD) for all templates tested in the search, prior to each template's normalization (i.e., setting the SD to one). Values are single-precision format and ordered ascending by searched rotation index
@@ -87,9 +85,9 @@ When completed, the [outputDir] for sample_search.par should include the followi
 
 INPUT FILE PARAMETERS
 
-The sample_search.par file included in the landing directory includes descriptions (commented, following a \# sign) for input parameters and values expected in [your_parfile.par]. Default/recommended values in [brackets], where applicable; any line beginning with a # sign is ignored.
+The sample_search.par file included in the landing directory includes descriptions (commented, following a \# sign) for input parameters and values expected in [your_parfile.par]. Any line beginning with a \# sign is ignored.
 
-\# [function] [search_global]: the compiled function to run
+\# [function]: the compiled function to run
 
 function search_global
 
@@ -125,21 +123,21 @@ defocus 4407.0 3189.0 -55.0
 
 \# search specs:
 
-\# [aPerPix_search]: pixel-pitch assumed for the search. If <aPerPix_search> differs from <aPerPix>, the image and scattering potential are resampled by a factor of <aPerPix>/<aPerPix_search> for the global search and refinement steps; for the final step (particle optimization), the original non-resampled image and SP are used
+\# [aPerPix_search]: pixel-pitch assumed for the search. If [aPerPix_search] differs from [aPerPix], the image and scattering potential are resampled by a factor of [aPerPix]/[aPerPix_search] for the global search and refinement steps; for the final step (particle optimization), the original non-resampled image and SP are used
 
 aPerPix_search 1.5
 
-\# [rotationsFile] or <angle_inc>: two options to specify the set of rotations tested in the search. If <angle_inc> is used, a custom rotations file (rotations.txt) is written to the output directory during an early stage of the search.
+\# [rotationsFile] or [angle_inc]: two options to specify the set of rotations tested in the search. If [angle_inc] is used, a custom rotations file (rotations.txt) is written to the output directory during an early stage of the search.
 
 \# [rotationsFile] is an ASCII file (space-delimited) with a list of indexed 3x3 rotation matrices to employ during the search. Each 3x3 rotation matrix, R, included in the file should be normalized. 
 
-\# [angle_inc] specifies the average spacing between out-of-plane or in-plane rotations to search (you can additionally specify <psi_inc> as a new line of the .par file if you wish to provide a separate increment for in-plane rotations). Note that a typical high-resolution search with a ~3 A structure uses increments of ~1.88 degrees, increasing the runtime by ~8-fold.
+\# [angle_inc] specifies the average spacing between out-of-plane or in-plane rotations to search (you can additionally specify [psi_inc] as a new line of the .par file if you wish to provide a separate increment for in-plane rotations). Note that a typical high-resolution search with a ~3 A structure uses increments of ~1.88 degrees, increasing the runtime by ~8-fold.
 
 angle_inc 3.8
 
 \#rotationsFile /opt/smap/rotation/hopf_R3.txt
 
-\# [T_sample] []: estimated sample thickness (units: nanometers). Used together with <df_inc> to determine the range of assumed defocus planes to search
+\# [T_sample]: estimated sample thickness (units: nanometers). Used together with [df_inc] to determine the range of assumed defocus planes to search
 
 T_sample 200
 
@@ -165,43 +163,43 @@ Cc 0.0027
 
 deltaE 0.7
 
-\# [a_i] [0.000050]: illumination aperture (units: radians)
+\# [a_i]: illumination aperture (units: radians)
 
 a_i 0.000050
 
 \# optimization specs:
 
-\# [optThr] [7.0]: minimum SNR (pre-flat fielded) needed to qualify a particle (cluster) for post-search refinement and optimization
+\# [optThr]: minimum SNR (pre-flat fielded) needed to qualify a particle (cluster) for post-search refinement and optimization
 
 optThr 7.0
 
-\# [qThr] [10]: minimum angular distance (units: degrees) separating two above-threshold CC maxima included in a cluster
+\# [qThr]: minimum angular distance (units: degrees) separating two above-threshold CC maxima included in a cluster
 
 qThr 10
 
-\# [dThr] [10]: minimum euclidean distance (units: Angstroms) separating two above-threshold CC maxima include in a cluster
+\# [dThr]: minimum euclidean distance (units: Angstroms) separating two above-threshold CC maxima include in a cluster
 
 dThr 10
 
-\# [range_degrees] [2.0]: angular range searched during refinement (units: degrees). If the <angle_inc> parameter is passed to the global search, range_degrees is automatically set to <angle_inc> 
+\# [range_degrees]: angular range searched during refinement (units: degrees). If the [angle_inc] parameter is passed to the global search, range_degrees is automatically set to [angle_inc]
 
 range_degrees 2.0
 
-\# [inc_degrees] [0.5]: angular increment searched during refinement (units: degrees)
+\# [inc_degrees]: angular increment searched during refinement (units: degrees)
 
 inc_degrees 0.5
 
 \# optional parameters:	
 
-\# [arbThr] [6.0]: threshold CC value above which all values are saved (with corresponding pixel coordinates and rotation matrix indices). Values smaller than 6.0 may be explored but will slow down the search, and rapidly increase storage and memory demands
+\# [arbThr]: threshold CC value above which all values are saved (with corresponding pixel coordinates and rotation matrix indices). Values smaller than 6.0 may be explored but will slow down the search, and rapidly increase storage and memory demands
 
 arbThr 6.0
 
-\# [keep_scratch_flag] [0]: debugging flag that determines whether intermediate files in the scratch subdirectory are kept or deleted at the conclusion of a search
+\# [keep_scratch_flag]: debugging flag that determines whether intermediate files in the scratch subdirectory are kept or deleted at the conclusion of a search
 
 keep_scratch_flag 0
 
-\# [margin_pix] [32]: Determines the margin near the image-edges in which CC values found during the search are excluded from refinement or optimization. Intended to minimize residual edge artifacts from camera artifacts
+\# [margin_pix]: Determines the margin near the image-edges in which CC values found during the search are excluded from refinement or optimization. Intended to minimize residual edge artifacts from camera artifacts
 
 margin_pix 32 
 
