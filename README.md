@@ -60,7 +60,7 @@ When completed, the <outputDir> for sample_search.par should include the followi
 		13.182	589	587	453.70	331.90	0.960	0.592465	0.330980	-0.639164	-0.361810
 		15.636	325	325	445.70	323.90	0.960	0.593458	-0.562495	0.529557	0.225778
 		14.629	528	180	444.20	322.40	0.960	0.252096	0.734070	0.589035	-0.225006
-Parameters q1-q4 are elements of a normalized quaternion representing the rotation transform
+		Parameters q1-q4 are elements of a normalized quaternion representing the rotation transform
 	12. particles.mrc: 3D stack of detected particles from the image, cropped after sub-pixel centering on each detected particle
 	13. templates.mrc: 3D stack of templates corresponding to the detected particles
 	14. particles.par: a list of parameters for each detected particle from the search, provided in the format and convention of CisTEM/FrealignX:
