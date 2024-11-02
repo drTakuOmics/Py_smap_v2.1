@@ -1,5 +1,5 @@
 # Use CUDA/Ubuntu 22.04 as the base image
-FROM nvidia/cuda:12.6.1-base-ubuntu22.04
+FROM nvidia/cuda:12.4.1-base-ubuntu22.04
 
 # Install system dependencies first (e.g., wget, unzip, bash, file, and other required libraries)
 RUN apt-get update && apt-get install -y \

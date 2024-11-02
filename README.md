@@ -7,44 +7,58 @@ J. Peter Rickgauer
 
 rickgauerj@janelia.hhmi.org
 
+## OVERVIEW
 smap_v2.1 is a program for detecting unlabeled macromolecules in 2D Cryo-EM images of cells that uses high-resolution template matching (HRTM; Rickgauer et al., eLife 2017; Rickgauer et al., BiorXiv 2020; Lucas et al., eLife 2021). High-resolution images are searched exhaustively to localize and align targets against an existing high-resolution structural model, and target validation is determined using a statistical approach that does not depend on the number of targets found in the image or on their similarities in an ensemble analysis, introducing new possibilities for detecting targets that are small or rare. Detected particles may be carried forward for further analysis, bearing in mind that most applications of conventional single-particle analysis (SPA) will yield reconstructions that resemble the template (Henderson, PNAS 2013; Van Heel, PNAS 2013); in such cases, excluding regions of novel structural interest from the search model before detection or further analysis is essential.
 
 This repository includes source code, executables, and a containerized Docker environment to allow users to calculate new search models from solved high-resolution structures, and to employ those or other high-resolution .mrc-formatted structural volumes for target detection in pre-processed high-resolution 2D images of crowded molecular environments.
 
 
-SYSTEM RECOMMENDATIONS
+## SYSTEM RECOMMENDATIONS
 
--64-bit Ubuntu (tested using 6.8.0-40-generic \#40~22.04.3-Ubuntu, x86_64)
+-64-bit Ubuntu 22.04 (tested using 6.8.0-40-generic \#40~22.04.3-Ubuntu, x86_64)
 
 -Minimal hardware configuration tested: Intel(R) Xeon(R) Gold 5218R CPU @ 2.10GHz (x80), 192 GB RAM, 3+ A5000 boards. Other NVIDIA-compatible GPU boards (GeForce GTX1080 or equivalent, with 8+ GB onboard memory) are also acceptable for most applications; runtime is reduced by maximizing single-precision FLOPS across boards (tested up to ~544 TFLOPS)
 
 -Docker configured for the nvidia-container-toolkit
 
 
-INSTALLATION
+## INSTALLATION
 
-A Dockerfile is included to rebuild a containerized environment on Ubuntu 22.04 systems, from which our software can be run from a bash shell. If your system *is not* already configured for Docker with the nvidia-container-toolkit, please see TROUBLESHOOTING HINTS below.
+Start by cloning the repository to your local machine:
 
-If your system *is* configured for Docker with the nvidia-container-toolkit module and compatible NVIDIA GPU boards, it should be possible to rebuild the containerized environment directly by going to the directory with the Dockerfile and running the following command:
+```bash
+git clone https://github.com/jpr-smap/smap_v2.1.git
+cd smap_v2.1
+```
 
-	sudo docker build -t smap:latest .
+The repository includes a Dockerfile to rebuild a containerized environment on Ubuntu 22.04 systems. Within that environment, our software can be run from a bash shell. 
 
-Rebuilding the environment for the first time may be slow (10s of minutes, depending on connectivity) because it involves downloading the full set of Matlab runtime environment files that are needed to run the pre-compiled software.
+We recommend starting from a clean install of Docker (version 27.3.1, build ce12230) and the nvidia-container-toolkit. If you are unfamiliar with Docker, the nvidia-container-toolkit, or both, please see the section on INSTALLATION HINTS. If your system *is* configured for this version of Docker but you are not sure whether the nvidia-container-toolkit is installed, you can check this with:
+```bash
+dpkg -l | grep nvidia-container-toolkit
+```
+
+If your system has a current installs of both Docker and the nvidia-container-toolkit, and compatible NVIDIA GPU boards, you should be able to rebuild the containerized environment directly from the cloned repo directory with:
+```bash
+sudo docker build -t smap:latest .
+```
+Rebuilding the environment for the first time may be slow (10s of minutes, depending on connectivity) because it involves downloading the full set of Matlab runtime environment files required to run the compiled software.
 
 Once the environment is rebuilt, you should then be able to drop into it by running
-	
-	sudo docker run -it --gpus all smap:latest
-
+```bash	
+sudo docker run -it --gpus all smap:latest
+```
 to create a new interactive shell. You should land in the /opt/smap/ directory.
 
 
-SAMPLE RUN
+
+## SAMPLE RUN
 
 The container environment's entry point (/opt/smap/) includes compiled executables and a sample .par file (sample_search.par), and the structure and image files needed to run a search based on this .par file. If the number of GPU boards you wish to allocate for this is fewer than the number present on the system, you can modify sample_search.par to change the value of [nCores] in the file (additional details about .par files are provided below). To start the sample search, you can run:
-	
-	./smap_run.sh sample_search.par
-
-./smap_run.sh is a simple bash script with one expected input argument (name_of_your_parfile.par). The script should indicate that the search has been launched, and it should then run in the background. To view the progress on this search, you can follow changes to files in the [outputDir] directory as specified in the sample_search.par file (by default, it is /opt/smap/result/061518_F_0012_cropped-6ek0_LSU/).
+```bash	
+./smap_run.sh sample_search.par
+```
+smap_run.sh is a simple bash script with one expected input argument (name_of_your_parfile.par). The script should indicate that the search has been launched, and it should then run in the background. To view the progress on this search, you can follow changes to files in the [outputDir] directory as specified in the sample_search.par file (by default, it is /opt/smap/result/061518_F_0012_cropped-6ek0_LSU/).
 
 In the first step, a 3D .mrc file of the target molecule is calculated from the specified .cif file, which occurs in a temporary subdirectory of [outputDir]. This step takes about 4 minutes to complete for this LSU structure on our 4-board NVIDIA A5000 system. Once the work is complete and the model components are combined into two .mrc files representing electrostatic and scattering potential volumes (6ek0_LSU_EP.mrc and 6ek0_LSU_SP.mrc) in [outputDir], along with the combined log files, the temporary directory is removed.
 
@@ -85,130 +99,129 @@ When completed, the [outputDir] for sample_search.par should include the followi
 	20. 6ek0_LSU.log: consolidated log file from target potential calculations
 
 
-INPUT FILE PARAMETERS
+## INPUT FILE PARAMETERS
 
 The sample_search.par file included in the landing directory includes descriptions (commented, following a \# sign) for input parameters and values expected in [your_parfile.par]. Any line beginning with a \# sign is ignored.
 
-\# [function]: the compiled function to run
 
-function search_global
+	# [function]: the compiled function to run
 
-\# [nCores]: number of GPU boards to request:
+	function search_global
 
-nCores 4
+	# [nCores]: number of GPU boards to request:
 
-\# [imageFile]: name of input image to search (.mrc). The input image should already be pre-processed (i.e., corrected for gain reference, motion-corrected by frame, and summed to form a single-frame .mrc file)
+	nCores 4
 
-imageFile /opt/smap/image/061518_F_0012_cropped.mrc
+	# [imageFile]: name of input image to search (.mrc). The input image should already be pre-processed (i.e., corrected for gain reference, motion-corrected by frame, and summed to form a single-frame .mrc file)
 
-\# [modelFile]: name of scattering potential volume to use for template generation (.cif file, as formatted in the examples within the models/ directory, or .mrc). If you provide an .mrc file (e.g., a scattering potential calculated from a previous search), it will use that file as the target instead of calculating a new one
+	imageFile /opt/smap/image/061518_F_0012_cropped.mrc
 
-modelFile /opt/smap/model/6ek0_LSU.cif
+	# [modelFile]: name of scattering potential volume to use for template generation (.cif file, as formatted in the examples within the models/ directory, or .mrc). If you provide an .mrc file (e.g., a scattering potential calculated from a previous search), it will use that file as the target instead of calculating a new one
 
-\#modelFile /opt/smap/model/5j5b_monster.pdb
+	modelFile /opt/smap/model/6ek0_LSU.cif
 
-\# [bFactor]: assumed B-factor for all atoms if a new scattering potential is being calculated. Defaults to 0 if unlisted, and ignored if <modelFile> is a preexisting .mrc file
+	#modelFile /opt/smap/model/5j5b_monster.pdb
 
-bFactor 0
+	# [bFactor]: assumed B-factor for all atoms if a new scattering potential is being calculated. Defaults to 0 if unlisted, and ignored if <modelFile> is a preexisting .mrc file
 
-\# [outputDir]: directory for output and scratch files
+	bFactor 0
 
-outputDir /opt/smap/result/061518_F_0012_cropped-6ek0_LSU
+	# [outputDir]: directory for output and scratch files
 
-\# [aPerPix]: voxel or pitch assumed for the input image and model (in Angstroms)
+	outputDir /opt/smap/result/061518_F_0012_cropped-6ek0_LSU
 
-aPerPix 1.032
+	# [aPerPix]: voxel or pitch assumed for the input image and model (in Angstroms)
 
-\# [defocus]: astigmatic defocus parameters for the image (units: angstroms, angstroms, degrees) (see Rohou and Grigorieff, JSB 2015)
+	aPerPix 1.032
 
-defocus 4407.0 3189.0 -55.0
+	# [defocus]: astigmatic defocus parameters for the image (units: angstroms, angstroms, degrees) (see Rohou and Grigorieff, JSB 2015)
 
-\# search specs:
+	defocus 4407.0 3189.0 -55.0
 
-\# [aPerPix_search]: pixel-pitch assumed for the search. If [aPerPix_search] differs from [aPerPix], the image and scattering potential are resampled by a factor of [aPerPix]/[aPerPix_search] for the global search and refinement steps; for the final step (particle optimization), the original non-resampled image and SP are used
+	# search specs:
 
-aPerPix_search 1.5
+	# [aPerPix_search]: pixel-pitch assumed for the search. If [aPerPix_search] differs from [aPerPix], the image and scattering potential are resampled by a factor of [aPerPix]/[aPerPix_search] for the global search and refinement steps; for the final step (particle optimization), the original non-resampled image and SP are used
 
-\# [rotationsFile] or [angle_inc]: two options to specify the set of rotations tested in the search. If [angle_inc] is used, a custom rotations file (rotations.txt) is written to the output directory during an early stage of the search.
+	aPerPix_search 1.5
 
-\# [rotationsFile] is an ASCII file (space-delimited) with a list of indexed 3x3 rotation matrices to employ during the search. Each 3x3 rotation matrix, R, included in the file should be normalized. 
+	# [rotationsFile] or [angle_inc]: two options to specify the set of rotations tested in the search. If [angle_inc] is used, a custom rotations file (rotations.txt) is written to the output directory during an early stage of the search.
 
-\# [angle_inc] specifies the average spacing between out-of-plane or in-plane rotations to search (you can additionally specify [psi_inc] as a new line of the .par file if you wish to provide a separate increment for in-plane rotations). Note that a typical high-resolution search with a ~3 A structure uses increments of ~1.88 degrees, increasing the runtime by ~8-fold.
+	# [rotationsFile] is an ASCII file (space-delimited) with a list of indexed 3x3 rotation matrices to employ during the search. Each 3x3 rotation matrix, R, included in the file should be normalized. 
 
-angle_inc 3.8
+	# [angle_inc] specifies the average spacing between out-of-plane or in-plane rotations to search (you can additionally specify [psi_inc] as a new line of the .par file if you wish to provide a separate increment for in-plane rotations). Note that a typical high-resolution search with a ~3 A structure uses increments of ~1.88 degrees, increasing the runtime by ~8-fold.
 
-\#rotationsFile /opt/smap/rotation/hopf_R3.txt
+	angle_inc 3.8
 
-\# [T_sample]: estimated sample thickness (units: nanometers). Used together with [df_inc] to determine the range of assumed defocus planes to search
+	#rotationsFile /opt/smap/rotation/hopf_R3.txt
 
-T_sample 200
+	# [T_sample]: estimated sample thickness (units: nanometers). Used together with [df_inc] to determine the range of assumed defocus planes to search
 
-\# [df_inc]: defocus step-size used in the global image search (units: nanometers) 
+	T_sample 200
 
-df_inc 50
+	# [df_inc]: defocus step-size used in the global image search (units: nanometers) 
 
-\# microscope properties:
+	df_inc 50
 
-\# [V_acc]: microscope accelerating voltage (units: volts)
+	# microscope properties:
 
-V_acc 300000.0
+	# [V_acc]: microscope accelerating voltage (units: volts)
 
-\# [Cs]: spherical aberration coefficient (units: meters)
+	V_acc 300000.0
 
-Cs 0.000001
+	# [Cs]: spherical aberration coefficient (units: meters)
 
-\# [Cc]: chromatic aberration coefficient (units: meters)
+	Cs 0.000001
 
-Cc 0.0027
+	# [Cc]: chromatic aberration coefficient (units: meters)
 
-\# [deltaE]: energy spread of the source (units: eV)
+	Cc 0.0027
 
-deltaE 0.7
+	# [deltaE]: energy spread of the source (units: eV)
 
-\# [a_i]: illumination aperture (units: radians)
+	deltaE 0.7
 
-a_i 0.000050
+	# [a_i]: illumination aperture (units: radians)
 
-\# optimization specs:
+	a_i 0.000050
 
-\# [optThr]: minimum SNR (pre-flat fielded) needed to qualify a particle (cluster) for post-search refinement and optimization
+	# optimization specs:
 
-optThr 7.0
+	# [optThr]: minimum SNR (pre-flat fielded) needed to qualify a particle (cluster) for post-search refinement and optimization
 
-\# [qThr]: minimum angular distance (units: degrees) separating two above-threshold CC maxima included in a cluster
+	optThr 7.0
 
-qThr 10
+	# [qThr]: minimum angular distance (units: degrees) separating two above-threshold CC maxima included in a cluster
 
-\# [dThr]: minimum euclidean distance (units: Angstroms) separating two above-threshold CC maxima include in a cluster
+	qThr 10
 
-dThr 10
+	# [dThr]: minimum euclidean distance (units: Angstroms) separating two above-threshold CC maxima include in a cluster
 
-\# [range_degrees]: angular range searched during refinement (units: degrees). If the [angle_inc] parameter is passed to the global search, range_degrees is automatically set to [angle_inc]
+	dThr 10
 
-range_degrees 2.0
+	# [range_degrees]: angular range searched during refinement (units: degrees). If the [angle_inc] parameter is passed to the global search, range_degrees is automatically set to [angle_inc]
 
-\# [inc_degrees]: angular increment searched during refinement (units: degrees)
+	range_degrees 2.0
 
-inc_degrees 0.5
+	# [inc_degrees]: angular increment searched during refinement (units: degrees)
 
-\# optional parameters:	
+	inc_degrees 0.5
 
-\# [arbThr]: threshold CC value above which all values are saved (with corresponding pixel coordinates and rotation matrix indices). Values smaller than 6.0 may be explored but will slow down the search, and rapidly increase storage and memory demands
+	# optional parameters:	
 
-arbThr 6.0
+	# [arbThr]: threshold CC value above which all values are saved (with corresponding pixel coordinates and rotation matrix indices). Values smaller than 6.0 may be explored but will slow down the search, and rapidly increase storage and memory demands
 
-\# [keep_scratch_flag]: debugging flag that determines whether intermediate files in the scratch subdirectory are kept or deleted at the conclusion of a search
+	arbThr 6.0
 
-keep_scratch_flag 0
+	# [keep_scratch_flag]: debugging flag that determines whether intermediate files in the scratch subdirectory are kept or deleted at the conclusion of a search
 
-\# [margin_pix]: Determines the margin near the image-edges in which CC values found during the search are excluded from refinement or optimization. Intended to minimize residual edge artifacts from camera artifacts
+	keep_scratch_flag 0
 
-margin_pix 32 
+	# [margin_pix]: Determines the margin near the image-edges in which CC values found during the search are excluded from refinement or optimization. Intended to minimize residual edge artifacts from camera artifacts
+
+	margin_pix 32 
 
 
-FILES INCLUDED
-
-README.md: this readme file
+## FILES INCLUDED
 
 Dockerfile: used to rebuild a containerized environment on Ubuntu 22.04 systems allowing executables in the package to be invoked from a bash shell
 
@@ -230,101 +243,104 @@ In subdirectory src/smap_tools/:
 
 smappoi_search_global.m: MATLAB source code for the algorithm. Includes embedded functions needed to run a search (e.g., parsing input files and calculating scattering potential volumes from .cif or .pdb format models)
 
-smappoi_search_local.m: MATLAB source code for constrained searches (not yet fully implemented)
+smappoi_search_local.m: MATLAB source code for constrained searches (not implemented in this release)
 
 @smap/: MATLAB static methods library used by smappoi_search_global.m
 
-src/emClarity_FFT/: GPU-accelerated FFT code for MATLAB (https://github.com/StochasticAnalytics/emClarity.git)
+src/emClarity_FFT/: GPU-accelerated FFT code for MATLAB (see CODE REFERENCES below)
+
+README.md: this readme file
 
 
+## INSTALLATION HINTS
 
-TROUBLESHOOTING HINTS
-
-The following worked for us to install both Docker and the nvidia-container-toolkit on an Ubuntu 22.04 system.
+The following worked for us to install both Docker and the nvidia-container-toolkit on several Ubuntu 22.04 systems.
 
 Begin by checking to see if an older version of Docker is installed, and if so, uninstall it:
-
-	sudo apt-get remove docker docker-engine docker.io containerd runc 
-
+```bash
+sudo apt-get remove docker docker-engine docker.io containerd runc 
+```
 Next, set up the Docker repository:
-
-	sudo apt-get update
-	sudo apt-get install -y ca-certificates curl gnupg
-	sudo install -m 0755 -d /etc/apt/keyrings
-	curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+```
 Add the Docker repo:
-
-	echo \
-	"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-	$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list ] /dev/null
-
+```bash
+echo \
+"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list ] /dev/null
+```
 Install the Docker engine:
-
-	sudo apt-get update
-	sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
+```bash
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
 If this worked, you can verify the Docker install:
-
-	sudo docker --version
-
+```bash
+sudo docker --version
+```
 If your Docker does not already include the nvidia-container-toolkit, you may be able to install it by first setting up the NVIDIA package repository:
-
-	sudo curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-	distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-	curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
-	sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-
+```bash
+sudo curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+```
 Try installing by running: 
-
-	sudo apt-get update
-	sudo apt-get install -y nvidia-container-toolkit
-
+```bash
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+```
 If this doesn’t work, try this:
-
-	sudo apt-key adv --fetch-keys https://nvidia.github.io/nvidia-docker/gpgkey
-
+```bash
+sudo apt-key adv --fetch-keys https://nvidia.github.io/nvidia-docker/gpgkey
+```
 Then try the install again:
-
-	sudo apt-get update
-	sudo apt-get install -y nvidia-container-toolkit
-
+```bash
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+```
 Then configure Docker for the toolkit:
-
-	sudo tee /etc/docker/daemon.json ] /dev/null &lt&ltEOF
-	{
-	    "runtimes": {
-	        "nvidia": {
-        	    "path": "nvidia-container-runtime",
-	            "runtimeArgs": []
-	        }
-	    }
-	}
-	EOF
-
+```bash
+sudo tee /etc/docker/daemon.json ] /dev/null <<EOF
+{
+    "runtimes": {
+        "nvidia": {
+       	    "path": "nvidia-container-runtime",
+            "runtimeArgs": []
+       }
+    }
+}
+EOF
+```
 Restart Docker:
-
-	sudo systemctl restart docker
-
+```bash
+sudo systemctl restart docker
+```
 Verify that this has worked (it may also download the cuda/ubuntu base at this point):
+```bash
+sudo docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
+```
+If this worked, it should show you the output from nvidia-smi (a list of the boards available on the system). 
 
-	sudo docker run --rm --gpus all nvidia/cuda:12.6.1-base-ubuntu22.04 nvidia-smi
-
-If this worked, it should show you the output from nvidia-smi (a list of the boards available on the system). It should then be possible to rebuild the containerized environment using:
-
-	sudo docker build -t smap:latest .
-
+It should then be possible to rebuild the containerized environment using:
+```bash
+sudo docker build -t smap:latest .
+```
 and to drop into the environment using:
+```bash
+sudo docker run -it --gpus all smap:latest
+```
 
-	sudo docker run -it --gpus all smap:latest
+## KNOWN ISSUES
+
+The parser for .pdb and .cif files has not been tested extensively on the range of possible .pdb and .cif file formats. If you encounter difficulties calculating scattering potentials from a .pdb or .cif-formatted file, please check whether the format matches one of the .cif or .pdb files provided in the model/ directory.
 
 
-KNOWN ISSUES
-
-The parser for .pdb and .cif files has not been tested on the full range of possible .pdb and .cif file formats. If you encounter difficulties calculating scattering potentials, please first verify that the format matches one of the .cif or .pdb files provided in the model/ directory.
-
-
-REFERENCES
+## CODE REFERENCES
 
 smap_v2.1 makes use of the following external code:
 
@@ -339,5 +355,4 @@ smap_v2.1 makes use of the following external code:
 5. Rotation matrix sets were generated using code referenced in: Generating Uniform Incremental Grids on SO(3) Using the Hopf Fibrations, International Journal of Robotics Research, IJRR 2009 Anna Yershova, Swati Jain, Steven M. LaValle, and Julie C. Mitchell.
 
 6. GPU-accelerated matlab-executable FFT - Himes, B.A., Zhang, P. (https://github.com/StochasticAnalytics/emClarity.git)
-
 
