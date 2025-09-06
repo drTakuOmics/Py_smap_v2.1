@@ -1,8 +1,3 @@
-diff --git a//dev/null b/src/smap_tools_python/constants.py
-index 0000000000000000000000000000000000000000..910c22eca5a15e3f6efdcb5194b5c1940c7fbad7 100644
---- a//dev/null
-+++ b/src/smap_tools_python/constants.py
-@@ -0,0 +1,22 @@
 +import numpy as np
 +
 +
