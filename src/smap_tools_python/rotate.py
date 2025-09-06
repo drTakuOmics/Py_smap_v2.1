@@ -20,7 +20,9 @@ def rotate3d_vector(R, v):
 
 
 
+
     import numpy as np
+
 
 
 
@@ -31,6 +33,8 @@ def rotate3d_vector(R, v):
     if v.shape[0] != 3:
         return (R @ v.T).T
     return R @ v
+
+
 
 
 
@@ -163,6 +167,8 @@ def rotate3d_matrix(volume, R):
         grid[1, mask],
         grid[2, mask],
     ] = volume[coords[mask, 0], coords[mask, 1], coords[mask, 2]]
+    return out
+
    
 
 
