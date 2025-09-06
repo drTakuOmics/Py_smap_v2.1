@@ -2,6 +2,7 @@ import numpy as np
 
 
 def rrj(shape):
+
     """Compute normalized radial coordinates for an N-dimensional grid.
 
     Parameters
@@ -20,6 +21,8 @@ def rrj(shape):
     R = np.sqrt(sq)
     max_radius = max(s // 2 for s in shape)
     return R / (2 * max_radius)
+
+    
 
 
 def variable_cos_mask(im_size, mask_edges, a_per_pix):

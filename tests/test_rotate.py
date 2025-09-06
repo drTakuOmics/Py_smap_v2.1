@@ -6,6 +6,7 @@ from smap_tools_python import (
     rot90j,
 )
 
+
 def test_rotate3d_vector_single():
     R = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
     v = np.array([1, 0, 0])
@@ -25,6 +26,7 @@ def test_rotate3d_vector_column():
     out = rotate3d_vector(R, v)
     expected = R @ v
     assert np.allclose(out, expected)
+
 
 
 def test_rot90j_matches_numpy():
