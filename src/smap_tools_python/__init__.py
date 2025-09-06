@@ -7,6 +7,7 @@ from .zp import zp
 from .fov import fov_to_num, num_to_fov
 from .fft import ftj, iftj
 from .mask_central_cross import mask_central_cross
+from .mask_volume import mask_volume
 from .crop_pad import crop_or_pad
 from .resize_for_fft import resize_for_fft
 from .rotate import rotate3d_vector, rotate2d_matrix, rotate3d_matrix, rot90j
@@ -24,6 +25,7 @@ __all__ = [
     "ftj",
     "iftj",
     "mask_central_cross",
+    "mask_volume",
     "crop_or_pad",
     "resize_for_fft",
     "rotate3d_vector",

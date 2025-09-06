@@ -1,4 +1,3 @@
-
 import numpy as np
 
 
@@ -20,7 +19,6 @@ def rotate3d_vector(R, v):
     """
 
     import numpy as np
-
 
     R = np.asarray(R)
     v = np.asarray(v)
