@@ -18,6 +18,7 @@ def rotate3d_vector(R, v):
         Rotated vector(s) with the same orientation as ``v``.
     """
 
+
     import numpy as np
 
     R = np.asarray(R)
@@ -27,6 +28,8 @@ def rotate3d_vector(R, v):
     if v.shape[0] != 3:
         return (R @ v.T).T
     return R @ v
+
+
 
 def rot90j(arr, k=0):
     """Rotate an array by 90° increments while keeping its center aligned.
@@ -154,3 +157,6 @@ def rotate3d_matrix(volume, R):
         grid[2, mask],
     ] = volume[coords[mask, 0], coords[mask, 1], coords[mask, 2]]
     return out
+
+    return out
+
