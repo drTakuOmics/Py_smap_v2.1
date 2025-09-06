@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from .zp import zp
 
 ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -21,3 +21,16 @@ def fov_to_num(fov_ref):
     temp[4:6] = list(zp(idx, 2))
     temp[6:9] = list(zp(int(num_part), 3))
     return int("".join(temp))
+
+
+def num_to_fov(numref):
+    """Convert a numeric identifier back to a field-of-view reference string."""
+    num_str = str(int(numref)).zfill(9)
+    days = int(num_str[0:4])
+    baseline = datetime(2014, 1, 1, 12, 0, 0)
+    target = baseline + timedelta(days=days)
+    date_part = target.strftime("%m%d%y")
+    letter_idx = int(num_str[4:6])
+    letter = ALPHABET[letter_idx - 1]
+    num_part = zp(int(num_str[6:9]), 4)
+    return f"{date_part}_{letter}_{num_part}"
