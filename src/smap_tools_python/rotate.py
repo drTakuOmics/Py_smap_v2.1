@@ -10,8 +10,6 @@ def rotate3d_vector(R, v):
     components (``(N, 3)`` or ``(..., 3)``) and broadcasting is used to apply
     the rotation in a batched fashion.
 
-    """Rotate 3-D vectors using a rotation matrix.
-
 
     Parameters
     ----------
@@ -20,28 +18,11 @@ def rotate3d_vector(R, v):
     v : array_like
         Vector or array of vectors to rotate.
 
-    v : array_like, shape (..., 3) or (3, ...)
-        Vectors to rotate. If the leading dimension is not 3, the function
-        assumes vectors are provided row-wise.
-
     Returns
     -------
     numpy.ndarray
         Rotated vector(s) with the same orientation as the input.
     """
-
-
-        Rotated vector(s) with the same orientation as ``v``.
-    """
-
-
-
-
-    import numpy as np
-
-
-
-
 
     R = np.asarray(R)
     v = np.asarray(v)
@@ -50,16 +31,6 @@ def rotate3d_vector(R, v):
     if v.shape[0] == 3 and v.ndim == 2:
         return R @ v
     return np.einsum("ij,...j->...i", R, v)
-    if v.shape[0] != 3:
-        return (R @ v.T).T
-    return R @ v
-
-
-
-
-
-
-
 
 
 def rot90j(arr, k=0):
@@ -187,10 +158,4 @@ def rotate3d_matrix(volume, R):
         grid[1, mask],
         grid[2, mask],
     ] = volume[coords[mask, 0], coords[mask, 1], coords[mask, 2]]
-    
-
-
-   
-
-
     return out

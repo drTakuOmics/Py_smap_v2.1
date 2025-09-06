@@ -18,10 +18,8 @@ from .g2 import g2
 from .mean import mean
 from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
-from .rotate import rotate3d_vector
-
-
-
+from .bindata import bindata
+from .particle_diameter import particle_diameter
 
 
 __all__ = [
@@ -53,4 +51,7 @@ __all__ = [
     "getcp",
     "read_mrc",
     "write_mrc",
+    "bindata",
+    "particle_diameter",
 ]
+
