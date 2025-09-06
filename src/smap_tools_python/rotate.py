@@ -2,12 +2,24 @@ import numpy as np
 
 
 def rotate3d_vector(R, v):
+    """Rotate 3‑D vectors using a rotation matrix with NumPy broadcasting.
+
+    The function accepts a single vector or an array of vectors.  If the first
+    dimension has length 3 the vectors are interpreted as column vectors
+    (``(3, N)``).  Otherwise the last dimension is assumed to hold the vector
+    components (``(N, 3)`` or ``(..., 3)``) and broadcasting is used to apply
+    the rotation in a batched fashion.
+
     """Rotate 3-D vectors using a rotation matrix.
+
 
     Parameters
     ----------
     R : array_like, shape (3, 3)
         Rotation matrix.
+    v : array_like
+        Vector or array of vectors to rotate.
+
     v : array_like, shape (..., 3) or (3, ...)
         Vectors to rotate. If the leading dimension is not 3, the function
         assumes vectors are provided row-wise.
@@ -15,6 +27,10 @@ def rotate3d_vector(R, v):
     Returns
     -------
     numpy.ndarray
+        Rotated vector(s) with the same orientation as the input.
+    """
+
+
         Rotated vector(s) with the same orientation as ``v``.
     """
 
@@ -26,10 +42,14 @@ def rotate3d_vector(R, v):
 
 
 
+
     R = np.asarray(R)
     v = np.asarray(v)
     if v.ndim == 1:
         return R @ v
+    if v.shape[0] == 3 and v.ndim == 2:
+        return R @ v
+    return np.einsum("ij,...j->...i", R, v)
     if v.shape[0] != 3:
         return (R @ v.T).T
     return R @ v
@@ -167,7 +187,8 @@ def rotate3d_matrix(volume, R):
         grid[1, mask],
         grid[2, mask],
     ] = volume[coords[mask, 0], coords[mask, 1], coords[mask, 2]]
-    return out
+    
+
 
    
 
