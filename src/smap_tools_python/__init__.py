@@ -15,7 +15,9 @@ from .resize_for_fft import resize_for_fft
 from .rotate import rotate3d_vector, rotate2d_matrix, rotate3d_matrix, rot90j
 from .radial import radial_mean, radial_average, radial_max
 from .g2 import g2
+from .mean import mean
 from .rotate import rotate3d_vector
+
 
 
 __all__ = [
@@ -42,4 +44,6 @@ __all__ = [
     "radial_average",
     "radial_max",
     "g2",
+    "mean",
+
 ]
