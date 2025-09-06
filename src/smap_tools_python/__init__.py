@@ -18,6 +18,11 @@ from .g2 import g2
 from .mean import mean
 from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
+from .rotate import rotate3d_vector
+
+
+
+
 
 __all__ = [
     "variable_cos_mask",
