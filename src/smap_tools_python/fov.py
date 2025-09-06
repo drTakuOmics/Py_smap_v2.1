@@ -1,8 +1,3 @@
-diff --git a//dev/null b/src/smap_tools_python/fov.py
-index 0000000000000000000000000000000000000000..99dbbf906e779c5a635e96652a0419215756e3bf 100644
---- a//dev/null
-+++ b/src/smap_tools_python/fov.py
-@@ -0,0 +1,23 @@
 +from datetime import datetime
 +from .zp import zp
 +
