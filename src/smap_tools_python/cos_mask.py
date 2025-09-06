@@ -1,8 +1,3 @@
-diff --git a//dev/null b/src/smap_tools_python/cos_mask.py
-index 0000000000000000000000000000000000000000..f0f568e63164b62ebb9cd1cb8458a107c252da5a 100644
---- a//dev/null
-+++ b/src/smap_tools_python/cos_mask.py
-@@ -0,0 +1,28 @@
 +import numpy as np
 +
 +
