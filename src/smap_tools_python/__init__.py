@@ -16,6 +16,9 @@ from .rotate import rotate3d_vector, rotate2d_matrix, rotate3d_matrix, rot90j
 from .radial import radial_mean, radial_average, radial_max
 from .g2 import g2
 from .mean import mean
+from .rotate import rotate3d_vector
+
+
 
 __all__ = [
     "variable_cos_mask",
@@ -42,4 +45,5 @@ __all__ = [
     "radial_max",
     "g2",
     "mean",
+
 ]
