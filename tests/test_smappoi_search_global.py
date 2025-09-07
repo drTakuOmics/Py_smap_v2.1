@@ -17,7 +17,11 @@ def test_smappoi_search_global_stdout(tmp_path, capsys):
     par = tmp_path / 'search.par'
     par.write_text(par_template.format(imageFile=img, modelFile=model))
 
-    smappoi_search_global(par)
+    max_val, max_pos = smappoi_search_global(par)
     captured = capsys.readouterr()
     expected = Path('tests/fixtures/simple_stdout.txt').read_text().strip()
     assert captured.out.strip() == expected
+
+    result = np.array([max_val, *max_pos], dtype=float)
+    expected_result = np.loadtxt('tests/fixtures/simple_result.txt')
+    assert np.allclose(result, expected_result)
