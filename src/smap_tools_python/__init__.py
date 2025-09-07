@@ -76,6 +76,8 @@ from .pairwise_qd import pairwise_qd
 from .max_interp_f import max_interp_f
 from .frealign2smap import frealign2smap
 from .pr_quick import pr_quick
+from .parameterize_sf import parameterize_sf
+from .plot_sh import plot_sh
 
 __all__ = [
     "variable_cos_mask",
@@ -157,6 +159,8 @@ __all__ = [
     "max_interp_f",
     "frealign2smap",
     "pr_quick",
+    "parameterize_sf",
+    "plot_sh",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
