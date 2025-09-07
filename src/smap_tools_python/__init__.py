@@ -38,6 +38,8 @@ from .rotations_io import write_rotations_file, read_rotations_file
 from .assign_jobs import assign_jobs
 from .estimate_snr import estimate_snr
 from .ts import ts
+from .measure_qd import measure_qd
+from .mw import mw
 
 __all__ = [
     "variable_cos_mask",
@@ -83,6 +85,8 @@ __all__ = [
     "assign_jobs",
     "estimate_snr",
     "ts",
+    "measure_qd",
+    "mw",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
