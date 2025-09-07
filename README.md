@@ -225,11 +225,11 @@ The sample_search.par file included in the landing directory includes descriptio
 
 Dockerfile: used to rebuild a containerized environment on Ubuntu 22.04 systems allowing executables in the package to be invoked from a bash shell
 
-smap_run.sh: bash script to start a global search that invokes the compiled executable. Syntax to run is ./smap_run.sh [your_parfile.par]
+smap_run.sh: bash script to start a global search using the Python implementation. Syntax to run is `./smap_run.sh <your_parfile.par>`
+
+run_smappoi.sh: wrapper script that reads the requested function from a parameter file and runs the corresponding Python module
 
 sample_search.par: sample parameter file
-
-smappoi_search_global: executable used during the global search
 
 image/061518_F_0012_[cropped or full].mrc: sample images to search, excerpted from mouse embryonic fibroblast cells imaged close to focus (~300 nm).
 
@@ -239,17 +239,24 @@ model/5j5b_monster.pdb: rearranged ~2 MDa bacterial ribosome structure that can 
 
 rotation/hopf_R3.txt: sample [rotationsFile] entry, illustrating the format. Note that this provides only partial rotation coverage for a high-resolution search
 
-In subdirectory src/smap_tools/:
-
-smappoi_search_global.m: MATLAB source code for the algorithm. Includes embedded functions needed to run a search (e.g., parsing input files and calculating scattering potential volumes from .cif or .pdb format models)
-
-smappoi_search_local.m: MATLAB source code for constrained searches (not implemented in this release)
-
-@smap/: MATLAB static methods library used by smappoi_search_global.m
-
-src/emClarity_FFT/: GPU-accelerated FFT code for MATLAB (see CODE REFERENCES below)
-
 README.md: this readme file
+
+
+## Usage
+
+To run a search using the Python implementation, execute the wrapper script with a parameter file:
+
+```bash
+./run_smappoi.sh sample_search.par
+```
+
+This script reads the `function` entry from the parameter file and dispatches to the matching module, such as
+
+```bash
+python -m smap_tools_python.smappoi_search_global sample_search.par 1
+```
+
+For multi-GPU runs, `smap_run.sh` uses the same approach to launch one process per GPU based on the `nCores` value in the parameter file.
 
 
 ## INSTALLATION HINTS
@@ -339,20 +346,4 @@ sudo docker run -it --gpus all smap:latest
 
 The parser for .pdb and .cif files has not been tested extensively on the range of possible .pdb and .cif file formats. If you encounter difficulties calculating scattering potentials from a .pdb or .cif-formatted file, please check whether the format matches one of the .cif or .pdb files provided in the model/ directory.
 
-
-## CODE REFERENCES
-
-smap_v2.1 makes use of the following external code:
-
-1. ReadMRC.m and associated code - F. Sigworth; File ID \#27021, https://www.mathworks.com/matlabcentral/fileexchange/
-
-2. fastPDBread.m - https://www.mathworks.com/matlabcentral/fileexchange/35009-a-fast-method-of-reading-data-from-pdb-files/all_files
-
-3. bindata.m (P. Mineault; https://xcorr.net/?p=3326, http://www-pord.ucsd.edu/~matlab/bin.htm
-
-4. parametrizeScFac.m - from InSilicoTEM, as described in Vulovic M. et al., Image formation modeling in cryo-electron microscopy, J. Struct. Biol. (2013) 183(1):19-32.
-
-5. Rotation matrix sets were generated using code referenced in: Generating Uniform Incremental Grids on SO(3) Using the Hopf Fibrations, International Journal of Robotics Research, IJRR 2009 Anna Yershova, Swati Jain, Steven M. LaValle, and Julie C. Mitchell.
-
-6. GPU-accelerated matlab-executable FFT - Himes, B.A., Zhang, P. (https://github.com/StochasticAnalytics/emClarity.git)
 
