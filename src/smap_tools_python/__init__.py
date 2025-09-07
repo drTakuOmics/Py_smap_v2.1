@@ -10,7 +10,7 @@ from .mask_central_cross import mask_central_cross
 from .mask_volume import mask_volume
 from .ks import get_ks
 from .ctf import ctf
-from .crop_pad import crop_or_pad
+from .crop_pad import crop_or_pad, cutj, extendj
 from .resize_for_fft import resize_for_fft
 from .rotate import (
     rotate3d_vector,
@@ -23,14 +23,12 @@ from .radial import radial_mean, radial_average, radial_max
 from .g2 import g2
 from .mean import mean
 from .nm import nm
-from .rotate import rotate3d_vector, rotate2d_matrix, rotate3d_matrix, rot90j
-from .radial import radial_mean, radial_average, radial_max
-from .g2 import g2
-from .mean import mean
 from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
 from .bindata import bindata
 from .particle_diameter import particle_diameter
+from .whoami import whoami
+
 
 __all__ = [
     "variable_cos_mask",
@@ -47,6 +45,8 @@ __all__ = [
     "get_ks",
     "ctf",
     "crop_or_pad",
+    "cutj",
+    "extendj",
     "resize_for_fft",
     "rotate3d_vector",
     "rotate2d_matrix",
@@ -65,4 +65,5 @@ __all__ = [
     "write_mrc",
     "bindata",
     "particle_diameter",
+    "whoami",
 ]

@@ -75,4 +75,3 @@ def test_normalize_rotation_matrices():
     Rn = normalize_rotation_matrices(R_noisy)
     assert np.allclose(Rn @ Rn.T, np.eye(3), atol=1e-6)
     assert np.isclose(np.linalg.det(Rn), 1.0, atol=1e-6)
-
