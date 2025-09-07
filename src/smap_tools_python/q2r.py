@@ -35,3 +35,12 @@ def q2r(q):
     u, _, v = np.linalg.svd(R)
     R = u @ v
     return R[0] if R.shape[0] == 1 else R
+
+
+def q2R(q):
+    """Alias to :func:`q2r` for MATLAB compatibility."""
+
+    return q2r(q)
+
+
+__all__ = ["q2r", "q2R"]
