@@ -84,6 +84,8 @@ from .plot_shh import plot_shh
 from .q_fig import q_fig
 from .read_params_file import read_params_file
 from .p3d import p3d
+from .dw import dw
+from .lb_bh_to_rrs import lb_bh_to_rrs
 from .reg2vols import reg2vols
 from .subtract_volume import subtract_volume
 
@@ -165,6 +167,8 @@ __all__ = [
     "p3do",
     "p3a",
     "p3d",
+    "dw",
+    "lb_bh_to_rrs",
     "check_base_dir",
     "gridded_qs",
     "pairwise_qd",
