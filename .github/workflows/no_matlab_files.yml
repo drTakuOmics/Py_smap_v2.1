@@ -1,0 +1,17 @@
+name: Check for forbidden MATLAB files
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  no-matlab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if MATLAB backups or scripts are present
+        run: |
+          if git ls-files | grep -E -i '\.(m|asv)$'; then
+            echo 'MATLAB (.m) or backup (.asv) files detected. Remove them before committing.'
+            exit 1
+          fi
