@@ -1,5 +1,6 @@
 """Python utilities for SMAP tools."""
 
+from .smap import Smap
 from .cos_mask import cos_mask, variable_cos_mask, cosMask
 from .rrj import rrj
 from .quaternion import Quaternion
@@ -148,6 +149,7 @@ from .smappoi_search_local import smappoi_search_local
 quaternion = Quaternion
 
 __all__ = [
+    "Smap",
     "cos_mask",
     "variable_cos_mask",
     "cosMask",
