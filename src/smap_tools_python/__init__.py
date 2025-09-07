@@ -44,6 +44,8 @@ from .dat_io import write_dat, read_dat_file
 from .rotations_io import write_rotations_file, read_rotations_file
 from .parse_cell_array import parse_cell_array
 from .get_psd import get_psd
+from .psd_filter import psd_filter
+from .psd_filter_3d import psd_filter_3d
 from .gpu_whos import gpu_whos
 from .make_filt import make_filt
 from .make_phase_plate import make_phase_plate
@@ -151,4 +153,6 @@ __all__ = [
     "read_rotations_file",
     "parse_cell_array",
     "get_psd",
+    "psd_filter",
+    "psd_filter_3d",
 ]
