@@ -1,6 +1,6 @@
 """Python utilities for SMAP tools."""
 
-from .cos_mask import variable_cos_mask
+from .cos_mask import cos_mask, variable_cos_mask, cosMask
 from .rrj import rrj
 from .quaternion import Quaternion
 from .constants import def_consts
@@ -24,7 +24,17 @@ from .rotate import (
     rot90j,
     normalize_rotation_matrices,
 )
-from .radial import radial_mean, radial_average, radial_max
+from .radial import (
+    radial_mean,
+    radial_average,
+    radial_max,
+    radialmeanj,
+    radialmean_im,
+    radial_average_im,
+    radialmaxj,
+    radialAverageIm,
+    radialmeanIm,
+)
 from .polar_image import polar_image
 from .r_theta import r_theta
 from .g2 import g2
@@ -32,6 +42,7 @@ from .mean import mean
 from .nm import nm
 from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
+from .mr import mr
 from .ri import tr, ri, tw
 from .bindata import bindata
 from .particle_diameter import particle_diameter
@@ -40,7 +51,7 @@ from .sum_frames import sum_frames
 from .whoami import whoami
 from .occ import occ
 from .apply_filter import apply_filter
-from .q2r import q2r
+from .q2r import q2r, q2R
 from .approx_mtf import approx_mtf
 from .mtf_mm import mtf_mm
 from .dat_io import write_dat, read_dat_file
@@ -49,7 +60,7 @@ from .parse_cell_array import parse_cell_array
 from .get_psd import get_psd
 from .psd_filter import psd_filter
 from .psd_filter_3d import psd_filter_3d
-from .gpu_whos import gpu_whos
+from .gpu_whos import gpu_whos, gpuwhos
 from .make_filt import make_filt
 from .make_phase_plate import make_phase_plate
 from .assign_jobs import assign_jobs
@@ -58,6 +69,7 @@ from .ts import ts
 from .bump_q import bump_q
 from .calculate_search_grid import calculate_search_grid
 from .measure_qd import measure_qd
+from .normalize_rm import normalize_rm
 from .mw import mw
 from .cif import read_cif_file
 from .pdb import read_pdb_file
@@ -83,13 +95,22 @@ from .plot_shh import plot_shh
 from .q_fig import q_fig
 from .read_params_file import read_params_file
 from .p3d import p3d
+from .dw import dw
+from .lb_bh_to_rrs import lb_bh_to_rrs
+from .get_pref import get_pref
 from .reg2vols import reg2vols
 from .subtract_volume import subtract_volume
+from .q_to_density import q_to_density
+
+quaternion = Quaternion
 
 __all__ = [
+    "cos_mask",
     "variable_cos_mask",
+    "cosMask",
     "rrj",
     "Quaternion",
+    "quaternion",
     "def_consts",
     "zp",
     "fov_to_num",
@@ -114,9 +135,16 @@ __all__ = [
     "rotate3d_matrix",
     "rot90j",
     "normalize_rotation_matrices",
+    "normalize_rm",
     "radial_mean",
     "radial_average",
     "radial_max",
+    "radialmeanj",
+    "radialmean_im",
+    "radial_average_im",
+    "radialmaxj",
+    "radialAverageIm",
+    "radialmeanIm",
     "polar_image",
     "r_theta",
     "g2",
@@ -127,6 +155,7 @@ __all__ = [
     "resize_F",
     "read_mrc",
     "write_mrc",
+    "mr",
     "tr",
     "ri",
     "tw",
@@ -137,9 +166,11 @@ __all__ = [
     "occ",
     "apply_filter",
     "q2r",
+    "q2R",
     "approx_mtf",
     "mtf_mm",
     "gpu_whos",
+    "gpuwhos",
     "make_filt",
     "make_phase_plate",
     "assign_jobs",
@@ -162,7 +193,11 @@ __all__ = [
     "p3do",
     "p3a",
     "p3d",
+    "dw",
+    "lb_bh_to_rrs",
+    "get_pref",
     "check_base_dir",
+    "q_to_density",
     "gridded_qs",
     "pairwise_qd",
     "max_interp_f",
