@@ -119,6 +119,8 @@ from .smap2cistem import smap2cistem
 from .register_multiple_fragments import register_multiple_fragments
 from .ipcc import ipcc, ipcc_m
 from .write_search_params import write_search_params, writeSearchParams
+from .run_ctffind import run_ctffind
+from .make_template_stack import make_template_stack
 
 
 quaternion = Quaternion
@@ -251,6 +253,8 @@ __all__ = [
     "getDataset",
     "getDatasets",
     "putDataset",
+    "run_ctffind",
+    "make_template_stack",
     "smap2pymol",
     "smap2frealign",
     "smap2cistem",
