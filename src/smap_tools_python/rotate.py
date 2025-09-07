@@ -212,3 +212,4 @@ def normalize_rotation_matrices(R):
         U[neg, :, 2] *= -1
         Rn = np.matmul(U, Vt)
     return Rn.reshape(orig_shape)
+
