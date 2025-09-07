@@ -63,6 +63,8 @@ from .avl import avl
 from .p3dr import p3dr
 from .p3do import p3do
 from .p3a import p3a
+from .check_base_dir import check_base_dir
+from .gridded_qs import gridded_qs
 
 __all__ = [
     "variable_cos_mask",
@@ -132,6 +134,8 @@ __all__ = [
     "p3dr",
     "p3do",
     "p3a",
+    "check_base_dir",
+    "gridded_qs",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
