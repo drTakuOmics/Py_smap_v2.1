@@ -45,6 +45,8 @@ from .get_psd import get_psd
 from .assign_jobs import assign_jobs
 from .estimate_snr import estimate_snr
 from .ts import ts
+from .bump_q import bump_q
+from .calculate_search_grid import calculate_search_grid
 from .measure_qd import measure_qd
 from .mw import mw
 from .cif import read_cif_file
@@ -100,6 +102,8 @@ __all__ = [
     "assign_jobs",
     "estimate_snr",
     "ts",
+    "bump_q",
+    "calculate_search_grid",
     "measure_qd",
     "mw",
     "read_cif_file",
