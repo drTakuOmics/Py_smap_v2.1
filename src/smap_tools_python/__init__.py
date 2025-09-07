@@ -101,6 +101,17 @@ from .get_pref import get_pref
 from .reg2vols import reg2vols
 from .subtract_volume import subtract_volume
 from .q_to_density import q_to_density
+from .parse_input_file import parse_input_file
+from .read_output_files import read_output_files
+from .search_for_pdb import search_for_pdb
+from .datasets import (
+    get_dataset,
+    get_datasets,
+    put_dataset,
+    getDataset,
+    getDatasets,
+    putDataset,
+)
 
 quaternion = Quaternion
 
@@ -220,4 +231,13 @@ __all__ = [
     "get_psd",
     "psd_filter",
     "psd_filter_3d",
+    "parse_input_file",
+    "read_output_files",
+    "search_for_pdb",
+    "get_dataset",
+    "get_datasets",
+    "put_dataset",
+    "getDataset",
+    "getDatasets",
+    "putDataset",
 ]
