@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+*.mrc
 
 # Ignore MATLAB autosave files
 *.asv

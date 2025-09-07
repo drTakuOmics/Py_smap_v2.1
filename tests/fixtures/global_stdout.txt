@@ -1,1 +1,0 @@
-smappoi_search_global: loaded 24 parameters for job 1
