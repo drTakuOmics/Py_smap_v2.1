@@ -4,3 +4,4 @@ pytest
 mrcfile
 openpyxl
 ncempy
+pandas
