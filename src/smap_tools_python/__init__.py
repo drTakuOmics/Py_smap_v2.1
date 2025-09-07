@@ -120,6 +120,7 @@ from .register_multiple_fragments import register_multiple_fragments
 from .ipcc import ipcc, ipcc_m
 from .write_search_params import write_search_params, writeSearchParams
 
+
 quaternion = Quaternion
 
 __all__ = [
