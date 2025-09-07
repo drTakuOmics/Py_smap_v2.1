@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
-from smap_tools_python import mask_central_cross
-from smap_tools_python import mask_volume
+
+from smap_tools_python import mask_central_cross, mask_volume
 
 
 def test_mask_central_cross_frequency():
@@ -9,8 +9,8 @@ def test_mask_central_cross_frequency():
     out = mask_central_cross(F)
     cp = 5 // 2
     assert out[cp, cp] == 1
-    assert np.all(out[cp, :cp] == 0) and np.all(out[cp, cp+1:] == 0)
-    assert np.all(out[:cp, cp] == 0) and np.all(out[cp+1:, cp] == 0)
+    assert np.all(out[cp, :cp] == 0) and np.all(out[cp, cp + 1 :] == 0)
+    assert np.all(out[:cp, cp] == 0) and np.all(out[cp + 1 :, cp] == 0)
 
 
 def test_mask_volume_mask_mode():
@@ -29,3 +29,4 @@ def test_mask_volume_shell_mode():
     vol[2, 2, 2] = 1
     out, mask, D = mask_volume(vol, (1, 1), mode="shell")
     assert mask.sum() > 0
+
