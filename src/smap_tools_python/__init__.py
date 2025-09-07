@@ -73,6 +73,9 @@ from .p3a import p3a
 from .check_base_dir import check_base_dir
 from .gridded_qs import gridded_qs
 from .pairwise_qd import pairwise_qd
+from .max_interp_f import max_interp_f
+from .frealign2smap import frealign2smap
+from .pr_quick import pr_quick
 
 __all__ = [
     "variable_cos_mask",
@@ -151,6 +154,9 @@ __all__ = [
     "check_base_dir",
     "gridded_qs",
     "pairwise_qd",
+    "max_interp_f",
+    "frealign2smap",
+    "pr_quick",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
