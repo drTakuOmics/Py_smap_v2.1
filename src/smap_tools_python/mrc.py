@@ -30,7 +30,11 @@ def read_mrc(path: str):
 
     with mrcfile.open(path, permissive=True) as mrc:
         data = np.array(mrc.data, copy=True)
-        voxel = tuple(float(v) for v in mrc.voxel_size)
+        vs = mrc.voxel_size
+        if hasattr(vs, "x"):
+            voxel = (float(vs.x), float(vs.y), float(vs.z))
+        else:  # fall back to sequence-like
+            voxel = tuple(float(v) for v in np.atleast_1d(vs))
     return data, voxel
 
 
