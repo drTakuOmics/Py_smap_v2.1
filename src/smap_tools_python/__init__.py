@@ -13,6 +13,9 @@ from .ctf import ctf
 from .crop_pad import crop_or_pad, cutj, extendj
 from .resize_for_fft import resize_for_fft
 from .pad_for_fft import pad_for_fft
+from .phase_shift import apply_phase_shifts
+from .crop_patch import crop_patch_from_image
+from .tile_images import tile_images
 from .rotate import (
     rotate3d_vector,
     rotate2d_matrix,
@@ -26,6 +29,7 @@ from .mean import mean
 from .nm import nm
 from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
+from .ri import tr, ri
 from .bindata import bindata
 from .particle_diameter import particle_diameter
 from .whoami import whoami
@@ -41,8 +45,15 @@ from .get_psd import get_psd
 from .assign_jobs import assign_jobs
 from .estimate_snr import estimate_snr
 from .ts import ts
+from .bump_q import bump_q
+from .calculate_search_grid import calculate_search_grid
 from .measure_qd import measure_qd
 from .mw import mw
+from .cif import read_cif_file
+from .pdb import read_pdb_file
+from .ccf import ccf
+from .cluster_im_by_thr import cluster_im_by_thr
+from .dust import dust
 
 __all__ = [
     "variable_cos_mask",
@@ -61,6 +72,9 @@ __all__ = [
     "crop_or_pad",
     "cutj",
     "extendj",
+    "apply_phase_shifts",
+    "crop_patch_from_image",
+    "tile_images",
     "resize_for_fft",
     "pad_for_fft",
     "rotate3d_vector",
@@ -78,6 +92,8 @@ __all__ = [
     "getcp",
     "read_mrc",
     "write_mrc",
+    "tr",
+    "ri",
     "bindata",
     "particle_diameter",
     "whoami",
@@ -89,8 +105,15 @@ __all__ = [
     "assign_jobs",
     "estimate_snr",
     "ts",
+    "bump_q",
+    "calculate_search_grid",
     "measure_qd",
     "mw",
+    "read_cif_file",
+    "read_pdb_file",
+    "ccf",
+    "cluster_im_by_thr",
+    "dust",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
