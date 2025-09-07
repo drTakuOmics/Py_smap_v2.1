@@ -1,7 +1,6 @@
 import numpy as np
 
 
-
 def particle_diameter(vol, thresh=0.005):
     """Estimate particle diameter from a 3-D volume.
 
@@ -27,3 +26,6 @@ def particle_diameter(vol, thresh=0.005):
         return 0.0
     max_r = r[mask].max()
     return float(2 * max_r)
+
+
+__all__ = ["particle_diameter"]

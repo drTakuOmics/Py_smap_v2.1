@@ -80,6 +80,8 @@ from .ccfv import ccfv
 from .ccff import ccff
 from .ccff_gpu import ccff_gpu
 from .templates import templates
+from .templates_gpu import templates_gpu, templates_half_gpu
+from .get_dots import get_dots
 from .preprocess import preprocess
 from .cluster_im_by_thr import cluster_im_by_thr
 from .dust import dust
@@ -223,6 +225,9 @@ __all__ = [
     "ccff",
     "ccff_gpu",
     "templates",
+    "templates_gpu",
+    "templates_half_gpu",
+    "get_dots",
     "cluster_im_by_thr",
     "dust",
     "proj_view",
