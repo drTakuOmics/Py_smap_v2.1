@@ -34,6 +34,8 @@ from .mrc import read_mrc, write_mrc
 from .ri import tr, ri, tw
 from .bindata import bindata
 from .particle_diameter import particle_diameter
+from .resize_f import resize_F
+from .sum_frames import sum_frames
 from .whoami import whoami
 from .occ import occ
 from .apply_filter import apply_filter
@@ -109,12 +111,14 @@ __all__ = [
     "nm",
     "get_center_pixel",
     "getcp",
+    "resize_F",
     "read_mrc",
     "write_mrc",
     "tr",
     "ri",
     "tw",
     "bindata",
+    "sum_frames",
     "particle_diameter",
     "whoami",
     "occ",
