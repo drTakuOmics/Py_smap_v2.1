@@ -35,6 +35,7 @@ from .q2r import q2r
 from .approx_mtf import approx_mtf
 from .dat_io import write_dat, read_dat_file
 from .rotations_io import write_rotations_file, read_rotations_file
+from .assign_jobs import assign_jobs
 
 __all__ = [
     "variable_cos_mask",
@@ -77,6 +78,7 @@ __all__ = [
     "apply_filter",
     "q2r",
     "approx_mtf",
+    "assign_jobs",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
