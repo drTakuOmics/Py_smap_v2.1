@@ -112,10 +112,14 @@ from .datasets import (
     getDatasets,
     putDataset,
 )
+from .parse_excel_file import parse_excel_file, parseExcelFile
 from .smap2pymol import smap2pymol
 from .smap2frealign import smap2frealign
 from .smap2cistem import smap2cistem
 from .register_multiple_fragments import register_multiple_fragments
+from .ipcc import ipcc, ipcc_m
+from .write_search_params import write_search_params, writeSearchParams
+
 
 quaternion = Quaternion
 
@@ -251,4 +255,8 @@ __all__ = [
     "smap2frealign",
     "smap2cistem",
     "register_multiple_fragments",
+    "ipcc",
+    "ipcc_m",
+    "write_search_params",
+    "writeSearchParams",
 ]
