@@ -13,6 +13,9 @@ from .ctf import ctf
 from .crop_pad import crop_or_pad, cutj, extendj
 from .resize_for_fft import resize_for_fft
 from .pad_for_fft import pad_for_fft
+from .phase_shift import apply_phase_shifts
+from .crop_patch import crop_patch_from_image
+from .tile_images import tile_images
 from .rotate import (
     rotate3d_vector,
     rotate2d_matrix,
@@ -64,6 +67,9 @@ __all__ = [
     "crop_or_pad",
     "cutj",
     "extendj",
+    "apply_phase_shifts",
+    "crop_patch_from_image",
+    "tile_images",
     "resize_for_fft",
     "pad_for_fft",
     "rotate3d_vector",
