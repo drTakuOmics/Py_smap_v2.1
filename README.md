@@ -227,7 +227,7 @@ Dockerfile: used to rebuild a containerized environment on Ubuntu 22.04 systems 
 
 smap_run.sh: bash script to start a global search using the Python implementation. Syntax to run is `./smap_run.sh <your_parfile.par>`
 
-run_smappoi.sh: wrapper script that reads the requested function from a parameter file and runs the corresponding Python module
+run_smappoi.py: Python wrapper that reads the requested function from a parameter file and runs the corresponding module
 
 sample_search.par: sample parameter file
 
@@ -244,10 +244,10 @@ README.md: this readme file
 
 ## Usage
 
-To run a search using the Python implementation, execute the wrapper script with a parameter file:
+To run a search using the Python implementation inside Docker, execute `smap_run.sh` with a parameter file:
 
 ```bash
-./run_smappoi.sh sample_search.par
+./smap_run.sh sample_search.par
 ```
 
 This script reads the `function` entry from the parameter file and dispatches to the matching module, such as
@@ -256,7 +256,13 @@ This script reads the `function` entry from the parameter file and dispatches to
 python -m smap_tools_python.smappoi_search_global sample_search.par 1
 ```
 
-For multi-GPU runs, `smap_run.sh` uses the same approach to launch one process per GPU based on the `nCores` value in the parameter file.
+For single-run invocations outside the Docker wrapper you can also call:
+
+```bash
+python run_smappoi.py sample_search.par
+```
+
+`smap_run.sh` uses the same approach to launch one process per GPU based on the `nCores` value in the parameter file.
 
 
 ## INSTALLATION HINTS
