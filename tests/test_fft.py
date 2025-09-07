@@ -1,5 +1,5 @@
 import numpy as np
-from src.smap_tools_python import ftj, iftj
+from smap_tools_python import ftj, iftj
 
 
 def test_fft_roundtrip():

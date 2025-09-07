@@ -28,7 +28,7 @@ from .mrc import read_mrc, write_mrc
 from .bindata import bindata
 from .particle_diameter import particle_diameter
 from .whoami import whoami
-
+from .occ import occ
 
 __all__ = [
     "variable_cos_mask",
@@ -66,4 +66,5 @@ __all__ = [
     "bindata",
     "particle_diameter",
     "whoami",
+    "occ",
 ]

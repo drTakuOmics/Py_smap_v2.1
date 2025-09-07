@@ -1,9 +1,5 @@
 import numpy as np
 
-from .cos_mask import rrj
-from .bindata import bindata
-
-
 def particle_diameter(vol, thresh=0.005):
     """Estimate particle diameter from a 3-D volume.
 
@@ -38,4 +34,3 @@ def particle_diameter(vol, thresh=0.005):
     idx = np.where(binned > thresh)[0]
     if idx.size == 0:
         return 0.0
-    return float(idx[-1] * 2)

@@ -1,7 +1,7 @@
 import numpy as np
-from src.smap_tools_python import mask_central_cross
-from src.smap_tools_python import mask_volume
-
+import pytest
+from smap_tools_python import mask_central_cross
+from smap_tools_python import mask_volume
 
 def test_mask_central_cross_frequency():
     F = np.ones((5, 5), dtype=complex)
@@ -13,6 +13,7 @@ def test_mask_central_cross_frequency():
 
 
 def test_mask_volume_mask_mode():
+    pytest.importorskip("scipy")
     vol = np.zeros((5, 5, 5), float)
     vol[2, 2, 2] = 1
     out, mask, D = mask_volume(vol, (1, 1))
@@ -22,6 +23,7 @@ def test_mask_volume_mask_mode():
 
 
 def test_mask_volume_shell_mode():
+    pytest.importorskip("scipy")
     vol = np.zeros((5, 5, 5), float)
     vol[2, 2, 2] = 1
     out, mask, D = mask_volume(vol, (1, 1), mode="shell")

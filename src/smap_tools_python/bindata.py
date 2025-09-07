@@ -29,7 +29,7 @@ def bindata(y, x, xrg, sf=None):
     y = np.asarray(y)
     x = np.asarray(x)
 
-    if not isinstance(xrg, (list, tuple)):
+    if not (isinstance(xrg, (list, tuple)) and len(xrg) == 2):
         edges = np.asarray(xrg)
         bins = np.digitize(x, edges) - 1
         bins = np.clip(bins, 0, len(edges) - 2)
