@@ -2,6 +2,8 @@ import numpy as np
 
 
 def rrj(shape):
+
+
     """Compute normalized radial coordinates for an N-dimensional grid.
 
     Parameters
