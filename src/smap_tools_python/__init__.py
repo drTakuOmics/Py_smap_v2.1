@@ -44,10 +44,12 @@ from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
 from .mr import mr
 from .ri import tr, ri, tw
+from .read_dm_file import read_dm_file
 from .bindata import bindata
 from .particle_diameter import particle_diameter
 from .resize_f import resize_F
 from .sum_frames import sum_frames
+from .motion_corr import motion_corr
 from .whoami import whoami
 from .occ import occ
 from .apply_filter import apply_filter
@@ -74,6 +76,15 @@ from .mw import mw
 from .cif import read_cif_file
 from .pdb import read_pdb_file
 from .ccf import ccf
+from .ccfn import ccfn
+from .ccfv import ccfv
+from .ccff import ccff
+from .ccff_gpu import ccff_gpu
+from .ccff_bak_041423 import ccff_bak_041423
+from .templates import templates
+from .templates_gpu import templates_gpu, templates_half_gpu
+from .get_dots import get_dots
+from .preprocess import preprocess
 from .cluster_im_by_thr import cluster_im_by_thr
 from .dust import dust
 from .proj_view import proj_view
@@ -119,6 +130,17 @@ from .smap2cistem import smap2cistem
 from .register_multiple_fragments import register_multiple_fragments
 from .ipcc import ipcc, ipcc_m
 from .write_search_params import write_search_params, writeSearchParams
+from .run_ctffind import run_ctffind
+from .make_template_stack import make_template_stack
+from .write_mrc_header import write_mrc_header
+from .dose_filter import dose_filter
+from .gain_corr import gain_corr
+from .icos import icos
+from .get_icos import get_icos
+from .estimate_detector import estimate_detector
+from .ep2sp import ep2sp
+from .pdb2ep import pdb2ep
+from .backproject import backproject
 
 
 quaternion = Quaternion
@@ -181,6 +203,7 @@ __all__ = [
     "tw",
     "bindata",
     "sum_frames",
+    "motion_corr",
     "particle_diameter",
     "whoami",
     "occ",
@@ -203,6 +226,15 @@ __all__ = [
     "read_cif_file",
     "read_pdb_file",
     "ccf",
+    "ccfn",
+    "ccfv",
+    "ccff",
+    "ccff_gpu",
+    "ccff_bak_041423",
+    "templates",
+    "templates_gpu",
+    "templates_half_gpu",
+    "get_dots",
     "cluster_im_by_thr",
     "dust",
     "proj_view",
@@ -251,6 +283,18 @@ __all__ = [
     "getDataset",
     "getDatasets",
     "putDataset",
+    "run_ctffind",
+    "make_template_stack",
+    "write_mrc_header",
+    "dose_filter",
+    "gain_corr",
+    "icos",
+    "get_icos",
+    "estimate_detector",
+    "ep2sp",
+    "pdb2ep",
+    "backproject",
+    "preprocess",
     "smap2pymol",
     "smap2frealign",
     "smap2cistem",

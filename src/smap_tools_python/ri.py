@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 
 from .mrc import read_mrc
+from .read_dm_file import read_dm_file
 
 try:  # pragma: no cover - optional dependency
     import tifffile
@@ -104,6 +105,9 @@ def ri(filename: str | Path):
     if ext == ".mrc":
         data, voxel = read_mrc(str(path))
         return data, {"voxel_size": voxel}
-    if ext == ".dm4":  # pragma: no cover - not yet implemented
-        raise NotImplementedError("DM4 reading not implemented")
+    if ext in (".dm3", ".dm4"):
+        data, px, units = read_dm_file(path)
+        info = {"voxel_size": (px[0] * 10, px[1] * 10, px[0] * 10), "units": units}
+        # convert nm to angstroms for voxel_size
+        return data, info
     raise ValueError(f"Unknown file type: {ext}")
