@@ -137,6 +137,9 @@ from .gain_corr import gain_corr
 from .icos import icos
 from .get_icos import get_icos
 from .estimate_detector import estimate_detector
+from .ep2sp import ep2sp
+from .pdb2ep import pdb2ep
+from .backproject import backproject
 
 
 quaternion = Quaternion
@@ -286,6 +289,9 @@ __all__ = [
     "icos",
     "get_icos",
     "estimate_detector",
+    "ep2sp",
+    "pdb2ep",
+    "backproject",
     "preprocess",
     "smap2pymol",
     "smap2frealign",
