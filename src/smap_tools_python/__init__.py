@@ -49,6 +49,7 @@ from .bindata import bindata
 from .particle_diameter import particle_diameter
 from .resize_f import resize_F
 from .sum_frames import sum_frames
+from .motion_corr import motion_corr
 from .whoami import whoami
 from .occ import occ
 from .apply_filter import apply_filter
@@ -198,6 +199,7 @@ __all__ = [
     "tw",
     "bindata",
     "sum_frames",
+    "motion_corr",
     "particle_diameter",
     "whoami",
     "occ",
