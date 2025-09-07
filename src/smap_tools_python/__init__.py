@@ -24,6 +24,8 @@ from .rotate import (
     normalize_rotation_matrices,
 )
 from .radial import radial_mean, radial_average, radial_max
+from .polar_image import polar_image
+from .r_theta import r_theta
 from .g2 import g2
 from .mean import mean
 from .nm import nm
@@ -85,6 +87,8 @@ __all__ = [
     "radial_mean",
     "radial_average",
     "radial_max",
+    "polar_image",
+    "r_theta",
     "g2",
     "mean",
     "nm",
