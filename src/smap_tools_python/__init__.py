@@ -12,6 +12,7 @@ from .ks import get_ks
 from .ctf import ctf
 from .crop_pad import crop_or_pad, cutj, extendj
 from .resize_for_fft import resize_for_fft
+from .pad_for_fft import pad_for_fft
 from .rotate import (
     rotate3d_vector,
     rotate2d_matrix,
@@ -29,6 +30,8 @@ from .bindata import bindata
 from .particle_diameter import particle_diameter
 from .whoami import whoami
 from .occ import occ
+from .apply_filter import apply_filter
+from .q2r import q2r
 from .approx_mtf import approx_mtf
 from .dat_io import write_dat, read_dat_file
 from .rotations_io import write_rotations_file, read_rotations_file
@@ -51,6 +54,7 @@ __all__ = [
     "cutj",
     "extendj",
     "resize_for_fft",
+    "pad_for_fft",
     "rotate3d_vector",
     "rotate2d_matrix",
     "rotate3d_matrix",
@@ -70,6 +74,8 @@ __all__ = [
     "particle_diameter",
     "whoami",
     "occ",
+    "apply_filter",
+    "q2r",
     "approx_mtf",
     "write_dat",
     "read_dat_file",
