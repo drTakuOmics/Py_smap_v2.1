@@ -4,22 +4,18 @@ from pathlib import Path
 from smap_tools_python import smappoi_search_local
 
 
-def test_smappoi_search_local_grid_and_shifts(tmp_path):
+def test_smappoi_search_local_grid_and_shifts(tmp_path, capsys):
     fixture_dir = Path("tests/fixtures")
 
+    par_template = (fixture_dir / "local_search.par").read_text()
+    rot_file = (fixture_dir / "local_rotations.txt").resolve()
     params_file = tmp_path / "params.par"
-    params_file.write_text(
-        f"""
-function search_local
-symmetry C1
-angle_inc 90
-psi_inc 180
-shift_step 2
-max_shift 4
-"""
-    )
+    params_file.write_text(par_template.format(rotationsFile=rot_file))
 
     grid, shifts = smappoi_search_local(params_file)
+    captured = capsys.readouterr()
+    expected_stdout = (fixture_dir / "local_stdout.txt").read_text().strip()
+    assert captured.out.strip() == expected_stdout
 
     expected_grid = (
         np.loadtxt(fixture_dir / "local_grid.txt")

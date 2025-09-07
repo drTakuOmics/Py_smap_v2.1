@@ -1,0 +1,7 @@
+function search_local
+symmetry C1
+angle_inc 90
+psi_inc 180
+shift_step 2
+max_shift 4
+rotationsFile {rotationsFile}
