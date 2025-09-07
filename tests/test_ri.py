@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 mrcfile = pytest.importorskip("mrcfile")
-from smap_tools_python import tr, ri
+from smap_tools_python import tr, ri, tw
 
 
 def test_tr_reads_multiframe_tiff(tmp_path):
@@ -35,3 +35,12 @@ def test_ri_handles_tiff(tmp_path):
     data, info = ri(path)
     assert data.shape == (3, 2, 1)
     assert info == {}
+
+
+def test_tw_writes_tiff(tmp_path):
+    tifffile = pytest.importorskip("tifffile")
+    data = np.arange(12, dtype=np.float32).reshape(3, 4, 1)
+    path = tmp_path / "out.tif"
+    tw(data, path, bps=32)
+    out = tr(path)
+    assert np.allclose(out, data)

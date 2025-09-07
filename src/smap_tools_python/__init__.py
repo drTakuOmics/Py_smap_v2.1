@@ -31,7 +31,7 @@ from .mean import mean
 from .nm import nm
 from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
-from .ri import tr, ri
+from .ri import tr, ri, tw
 from .bindata import bindata
 from .particle_diameter import particle_diameter
 from .whoami import whoami
@@ -65,6 +65,7 @@ from .p3do import p3do
 from .p3a import p3a
 from .check_base_dir import check_base_dir
 from .gridded_qs import gridded_qs
+from .pairwise_qd import pairwise_qd
 
 __all__ = [
     "variable_cos_mask",
@@ -107,6 +108,7 @@ __all__ = [
     "write_mrc",
     "tr",
     "ri",
+    "tw",
     "bindata",
     "particle_diameter",
     "whoami",
@@ -136,6 +138,7 @@ __all__ = [
     "p3a",
     "check_base_dir",
     "gridded_qs",
+    "pairwise_qd",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
