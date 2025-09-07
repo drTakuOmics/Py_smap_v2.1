@@ -175,6 +175,8 @@ __all__ = [
     "read_params_file",
     "reg2vols",
     "subtract_volume",
+    "q_fig",
+    "read_params_file",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
