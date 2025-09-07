@@ -22,7 +22,15 @@ def resize_F(arr, sf, method='fixedSize'):
     f = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(arr)))
     f_resized = crop_or_pad(f, final_size, pad_value=0)
     out = np.fft.fftshift(np.fft.ifftn(np.fft.ifftshift(f_resized))).real
-    out *= sf ** arr.ndim
+
+    if sf > 1:
+        # Downsampling via Fourier crop
+        scale = (sf**2) if arr.ndim == 2 else (1.0 / sf) ** 3
+    else:
+        # Upsampling via Fourier padding
+        scale = (sf**2) if arr.ndim == 2 else sf**3
+    out *= scale
+
     if method == 'fixedSize':
         out = crop_or_pad(out, os)
     return out
