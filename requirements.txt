@@ -5,3 +5,4 @@ mrcfile
 openpyxl
 ncempy
 pandas
+pre-commit
