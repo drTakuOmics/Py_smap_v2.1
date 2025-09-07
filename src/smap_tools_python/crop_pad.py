@@ -39,7 +39,6 @@ def crop_or_pad(arr, new_shape, pad_value=0):
     return cropped
 
 
-
 def cutj(arr, new_shape):
     """Crop or pad ``arr`` to ``new_shape`` using the data mean for padding.
 

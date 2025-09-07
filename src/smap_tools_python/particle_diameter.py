@@ -16,21 +16,12 @@ def particle_diameter(vol, thresh=0.005):
     float
         Estimated diameter in pixels.
     """
-    vol = np.asarray(vol)
-    Npix = max(vol.shape)
-    r_coord = rrj(vol.shape) * Npix
-
-    if Npix % 2:
-        r_bins = np.linspace(0, np.sqrt(2) / 2, int(Npix * np.sqrt(2) / 2) + 1)
-    else:
-        r_bins = np.linspace(0, np.sqrt(2) / 2, int((Npix + 1) * np.sqrt(2) / 2) + 1)[:-1]
-    r_bins *= Npix
-
-    r_coord = r_coord.ravel()
-    vol_flat = vol.astype(float).ravel()
-    binned, *_ = bindata(vol_flat, r_coord, r_bins)
-    binned = binned - np.median(binned)
-    binned /= np.max(binned)
-    idx = np.where(binned > thresh)[0]
-    if idx.size == 0:
+    vol = np.asarray(vol, float)
+    coords = [np.arange(s) - (s // 2) for s in vol.shape]
+    grids = np.meshgrid(*coords, indexing="ij")
+    r = np.sqrt(sum(g ** 2 for g in grids))
+    mask = vol > thresh
+    if not np.any(mask):
         return 0.0
+    max_r = r[mask].max()
+    return float(2 * max_r)

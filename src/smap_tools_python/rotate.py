@@ -1,4 +1,76 @@
 import numpy as np
+
+
+def rotate3d_vector(R, v):
+    """Rotate 3‑D vectors using a rotation matrix with NumPy broadcasting.
+
+    The function accepts a single vector or an array of vectors.  If the first
+    dimension has length 3 the vectors are interpreted as column vectors
+    (``(3, N)``).  Otherwise the last dimension is assumed to hold the vector
+    components (``(N, 3)`` or ``(..., 3)``) and broadcasting is used to apply
+    the rotation in a batched fashion.
+
+    Parameters
+    ----------
+    R : array_like, shape (3, 3)
+        Rotation matrix.
+    v : array_like
+        Vector or array of vectors to rotate.
+
+    Returns
+    -------
+    numpy.ndarray
+        Rotated vector(s) with the same orientation as the input.
+    """
+
+    R = np.asarray(R)
+    v = np.asarray(v)
+    if v.ndim == 1:
+        return R @ v
+    if v.shape[0] == 3 and v.ndim == 2:
+        return R @ v
+    return np.einsum("ij,...j->...i", R, v)
+
+
+def rot90j(arr, k=0):
+    """Rotate an array by 90° increments while keeping its center aligned.
+
+    This mirrors the MATLAB ``rot90j`` helper, applying the same pixel shifts
+    for even-sized arrays so that the central pixel remains in place after
+    rotation.
+
+    Parameters
+    ----------
+    arr : array_like
+        2-D array to rotate.
+    k : int, optional
+        Number of 90° rotations. Positive values rotate counter-clockwise.
+
+    Returns
+    -------
+    numpy.ndarray
+        Rotated array.
+    """
+
+    k = int(k) % 4
+    if k == 0:
+        return np.array(arr, copy=True)
+
+    out = np.rot90(arr, k)
+    edge = out.shape[0]
+    if edge % 2 == 0:
+        if k == 1:
+            shifts = (1, 0)
+        elif k == 2:
+            shifts = (1, 1)
+        elif k == 3:
+            shifts = (0, 1)
+        else:
+            shifts = (0, 0)
+        out = np.roll(out, shifts, axis=(0, 1))
+    return out
+
+
 def rotate2d_matrix(image, R):
     """Rotate a 2-D array using a rotation matrix.
 
@@ -106,6 +178,7 @@ def rotate3d_matrix(volume, R):
     ] = volume[coords[mask, 2], coords[mask, 1], coords[mask, 0]]
     return out
 
+
 def normalize_rotation_matrices(R):
     """Project matrices onto the closest proper rotation matrices.
 
@@ -139,4 +212,3 @@ def normalize_rotation_matrices(R):
         U[neg, :, 2] *= -1
         Rn = np.matmul(U, Vt)
     return Rn.reshape(orig_shape)
-

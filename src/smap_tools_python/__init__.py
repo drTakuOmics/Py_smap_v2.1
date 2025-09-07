@@ -30,6 +30,8 @@ from .particle_diameter import particle_diameter
 from .whoami import whoami
 from .occ import occ
 from .approx_mtf import approx_mtf
+from .dat_io import write_dat, read_dat_file
+from .rotations_io import write_rotations_file, read_rotations_file
 
 __all__ = [
     "variable_cos_mask",
@@ -69,4 +71,8 @@ __all__ = [
     "whoami",
     "occ",
     "approx_mtf",
+    "write_dat",
+    "read_dat_file",
+    "write_rotations_file",
+    "read_rotations_file",
 ]
