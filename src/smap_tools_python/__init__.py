@@ -40,6 +40,7 @@ from .mean import mean
 from .nm import nm
 from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
+from .mr import mr
 from .ri import tr, ri, tw
 from .bindata import bindata
 from .particle_diameter import particle_diameter
@@ -94,6 +95,7 @@ from .read_params_file import read_params_file
 from .p3d import p3d
 from .dw import dw
 from .lb_bh_to_rrs import lb_bh_to_rrs
+from .get_pref import get_pref
 from .reg2vols import reg2vols
 from .subtract_volume import subtract_volume
 
@@ -144,6 +146,7 @@ __all__ = [
     "resize_F",
     "read_mrc",
     "write_mrc",
+    "mr",
     "tr",
     "ri",
     "tw",
@@ -182,6 +185,7 @@ __all__ = [
     "p3d",
     "dw",
     "lb_bh_to_rrs",
+    "get_pref",
     "check_base_dir",
     "gridded_qs",
     "pairwise_qd",
