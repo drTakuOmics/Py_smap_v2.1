@@ -122,6 +122,8 @@ from .ipcc import ipcc, ipcc_m
 from .write_search_params import write_search_params, writeSearchParams
 from .run_ctffind import run_ctffind
 from .make_template_stack import make_template_stack
+from .write_mrc_header import write_mrc_header
+from .dose_filter import dose_filter
 
 
 quaternion = Quaternion
@@ -256,6 +258,8 @@ __all__ = [
     "putDataset",
     "run_ctffind",
     "make_template_stack",
+    "write_mrc_header",
+    "dose_filter",
     "smap2pymol",
     "smap2frealign",
     "smap2cistem",
