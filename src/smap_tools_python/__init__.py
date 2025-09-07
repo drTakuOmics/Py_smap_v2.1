@@ -8,7 +8,7 @@ from .zp import zp
 from .fov import fov_to_num, num_to_fov
 from .fft import ftj, iftj
 from .mask_central_cross import mask_central_cross
-from .mask_volume import mask_volume
+from .mask_volume import mask_volume, mask_a_volume
 from .ks import get_ks
 from .ctf import ctf
 from .crop_pad import crop_or_pad, cutj, extendj
@@ -112,6 +112,7 @@ from .datasets import (
     getDatasets,
     putDataset,
 )
+from .parse_excel_file import parse_excel_file, parseExcelFile
 
 quaternion = Quaternion
 
@@ -130,6 +131,7 @@ __all__ = [
     "iftj",
     "mask_central_cross",
     "mask_volume",
+    "mask_a_volume",
     "get_ks",
     "ctf",
     "crop_or_pad",
@@ -232,6 +234,8 @@ __all__ = [
     "psd_filter",
     "psd_filter_3d",
     "parse_input_file",
+    "parse_excel_file",
+    "parseExcelFile",
     "read_output_files",
     "search_for_pdb",
     "get_dataset",

@@ -70,3 +70,12 @@ def mask_volume(mapref, mask_params, mode="mask"):
 
     outref = mm * mask + bg_val
     return outref, mask, D
+
+
+def mask_a_volume(mapref, mask_params, mode="mask"):
+    """MATLAB-style alias of :func:`mask_volume`."""
+
+    return mask_volume(mapref, mask_params, mode)
+
+
+__all__ = ["mask_volume", "mask_a_volume"]
