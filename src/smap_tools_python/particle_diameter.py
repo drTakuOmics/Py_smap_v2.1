@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def particle_diameter(vol, thresh=0.005):
     """Estimate particle diameter from a 3-D volume.
 
