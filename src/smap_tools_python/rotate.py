@@ -10,7 +10,6 @@ def rotate3d_vector(R, v):
     components (``(N, 3)`` or ``(..., 3)``) and broadcasting is used to apply
     the rotation in a batched fashion.
 
-
     Parameters
     ----------
     R : array_like, shape (3, 3)

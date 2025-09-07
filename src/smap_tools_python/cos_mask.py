@@ -22,8 +22,6 @@ def rrj(shape):
     max_radius = max(s // 2 for s in shape)
     return R / (2 * max_radius)
 
-    
-
 
 def variable_cos_mask(im_size, mask_edges, a_per_pix):
     """Replicates MATLAB's variableCosMask function."""

@@ -12,6 +12,17 @@ from .ks import get_ks
 from .ctf import ctf
 from .crop_pad import crop_or_pad
 from .resize_for_fft import resize_for_fft
+from .rotate import (
+    rotate3d_vector,
+    rotate2d_matrix,
+    rotate3d_matrix,
+    rot90j,
+    normalize_rotation_matrices,
+)
+from .radial import radial_mean, radial_average, radial_max
+from .g2 import g2
+from .mean import mean
+from .nm import nm
 from .rotate import rotate3d_vector, rotate2d_matrix, rotate3d_matrix, rot90j
 from .radial import radial_mean, radial_average, radial_max
 from .g2 import g2
@@ -20,7 +31,6 @@ from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
 from .bindata import bindata
 from .particle_diameter import particle_diameter
-
 
 __all__ = [
     "variable_cos_mask",
@@ -42,11 +52,13 @@ __all__ = [
     "rotate2d_matrix",
     "rotate3d_matrix",
     "rot90j",
+    "normalize_rotation_matrices",
     "radial_mean",
     "radial_average",
     "radial_max",
     "g2",
     "mean",
+    "nm",
     "get_center_pixel",
     "getcp",
     "read_mrc",
@@ -54,4 +66,3 @@ __all__ = [
     "bindata",
     "particle_diameter",
 ]
-

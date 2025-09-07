@@ -4,8 +4,8 @@ from smap_tools_python import (
     rotate2d_matrix,
     rotate3d_matrix,
     rot90j,
+    normalize_rotation_matrices,
 )
-
 
 def test_rotate3d_vector_single():
     R = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
@@ -26,7 +26,6 @@ def test_rotate3d_vector_column():
     out = rotate3d_vector(R, v)
     expected = R @ v
     assert np.allclose(out, expected)
-
 
 
 def test_rot90j_matches_numpy():
@@ -68,3 +67,12 @@ def test_rotate3d_matrix_z90():
     expected = np.zeros_like(vol)
     expected[1, 1, 1] = 1
     assert np.array_equal(out, expected)
+
+
+def test_normalize_rotation_matrices():
+    R = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=float)
+    R_noisy = R + 0.01 * np.eye(3)
+    Rn = normalize_rotation_matrices(R_noisy)
+    assert np.allclose(Rn @ Rn.T, np.eye(3), atol=1e-6)
+    assert np.isclose(np.linalg.det(Rn), 1.0, atol=1e-6)
+
