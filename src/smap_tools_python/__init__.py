@@ -77,6 +77,7 @@ from .pdb import read_pdb_file
 from .ccf import ccf
 from .ccfn import ccfn
 from .ccfv import ccfv
+from .ccff import ccff
 from .cluster_im_by_thr import cluster_im_by_thr
 from .dust import dust
 from .proj_view import proj_view
@@ -126,6 +127,7 @@ from .run_ctffind import run_ctffind
 from .make_template_stack import make_template_stack
 from .write_mrc_header import write_mrc_header
 from .dose_filter import dose_filter
+from .gain_corr import gain_corr
 from .icos import icos
 from .get_icos import get_icos
 
@@ -214,6 +216,7 @@ __all__ = [
     "ccf",
     "ccfn",
     "ccfv",
+    "ccff",
     "cluster_im_by_thr",
     "dust",
     "proj_view",
@@ -266,6 +269,7 @@ __all__ = [
     "make_template_stack",
     "write_mrc_header",
     "dose_filter",
+    "gain_corr",
     "icos",
     "get_icos",
     "smap2pymol",
