@@ -56,6 +56,13 @@ from .pdb import read_pdb_file
 from .ccf import ccf
 from .cluster_im_by_thr import cluster_im_by_thr
 from .dust import dust
+from .proj_view import proj_view
+from .cistem2smap import cistem2smap
+from .ahl import ahl
+from .avl import avl
+from .p3dr import p3dr
+from .p3do import p3do
+from .p3a import p3a
 
 __all__ = [
     "variable_cos_mask",
@@ -118,6 +125,13 @@ __all__ = [
     "ccf",
     "cluster_im_by_thr",
     "dust",
+    "proj_view",
+    "cistem2smap",
+    "ahl",
+    "avl",
+    "p3dr",
+    "p3do",
+    "p3a",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
