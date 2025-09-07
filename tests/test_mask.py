@@ -3,7 +3,6 @@ import pytest
 from smap_tools_python import mask_central_cross
 from smap_tools_python import mask_volume
 
-
 def test_mask_central_cross_frequency():
     F = np.ones((5, 5), dtype=complex)
     out = mask_central_cross(F)

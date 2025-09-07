@@ -36,6 +36,7 @@ def radial_average(image: np.ndarray) -> np.ndarray:
     cy = (image.shape[0] - 1) / 2.0
     cx = (image.shape[1] - 1) / 2.0
     r = np.round(np.sqrt((x - cx) ** 2 + (y - cy) ** 2)).astype(np.int64)
+
     return profile[r]
 
 
@@ -45,6 +46,7 @@ def radial_max(image: np.ndarray) -> np.ndarray:
     cy = (image.shape[0] - 1) / 2.0
     cx = (image.shape[1] - 1) / 2.0
     r = np.round(np.sqrt((x - cx) ** 2 + (y - cy) ** 2)).astype(np.int64)
+
 
     r_flat = r.ravel()
     img_flat = image.ravel()
