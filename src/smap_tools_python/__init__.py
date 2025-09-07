@@ -1,6 +1,6 @@
 """Python utilities for SMAP tools."""
 
-from .cos_mask import variable_cos_mask
+from .cos_mask import cos_mask, variable_cos_mask
 from .rrj import rrj
 from .quaternion import Quaternion
 from .constants import def_consts
@@ -24,7 +24,15 @@ from .rotate import (
     rot90j,
     normalize_rotation_matrices,
 )
-from .radial import radial_mean, radial_average, radial_max
+from .radial import (
+    radial_mean,
+    radial_average,
+    radial_max,
+    radialmeanj,
+    radialmean_im,
+    radial_average_im,
+    radialmaxj,
+)
 from .polar_image import polar_image
 from .r_theta import r_theta
 from .g2 import g2
@@ -49,7 +57,7 @@ from .parse_cell_array import parse_cell_array
 from .get_psd import get_psd
 from .psd_filter import psd_filter
 from .psd_filter_3d import psd_filter_3d
-from .gpu_whos import gpu_whos
+from .gpu_whos import gpu_whos, gpuwhos
 from .make_filt import make_filt
 from .make_phase_plate import make_phase_plate
 from .assign_jobs import assign_jobs
@@ -58,6 +66,7 @@ from .ts import ts
 from .bump_q import bump_q
 from .calculate_search_grid import calculate_search_grid
 from .measure_qd import measure_qd
+from .normalize_rm import normalize_rm
 from .mw import mw
 from .cif import read_cif_file
 from .pdb import read_pdb_file
@@ -83,10 +92,13 @@ from .plot_shh import plot_shh
 from .q_fig import q_fig
 from .read_params_file import read_params_file
 from .p3d import p3d
+from .dw import dw
+from .lb_bh_to_rrs import lb_bh_to_rrs
 from .reg2vols import reg2vols
 from .subtract_volume import subtract_volume
 
 __all__ = [
+    "cos_mask",
     "variable_cos_mask",
     "rrj",
     "Quaternion",
@@ -114,9 +126,14 @@ __all__ = [
     "rotate3d_matrix",
     "rot90j",
     "normalize_rotation_matrices",
+    "normalize_rm",
     "radial_mean",
     "radial_average",
     "radial_max",
+    "radialmeanj",
+    "radialmean_im",
+    "radial_average_im",
+    "radialmaxj",
     "polar_image",
     "r_theta",
     "g2",
@@ -140,6 +157,7 @@ __all__ = [
     "approx_mtf",
     "mtf_mm",
     "gpu_whos",
+    "gpuwhos",
     "make_filt",
     "make_phase_plate",
     "assign_jobs",
@@ -162,6 +180,8 @@ __all__ = [
     "p3do",
     "p3a",
     "p3d",
+    "dw",
+    "lb_bh_to_rrs",
     "check_base_dir",
     "gridded_qs",
     "pairwise_qd",
