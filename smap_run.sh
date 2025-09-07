@@ -1,8 +1,9 @@
 #!/bin/bash
-# script for running compiled smap code inside Docker
-# Sets up the MATLAB Runtime environment for the current $ARCH and executes 
-# the specified command.
-# If the number of GPU boards requested in the .par file (nCores X) is greater than the number of boards visible to nvidia-smi -L, the lower of the two numbers is used
+# Script for running SMAP Python code inside Docker
+# Launches the requested function using the Python translations.
+# If the number of GPU boards requested in the .par file (nCores X) is
+# greater than the number of boards visible to nvidia-smi -L, the lower of
+# the two numbers is used
 #
 # syntax: ./smap_run.sh <parfile.par>
 
@@ -27,24 +28,15 @@ fi
 
 fxnToRun=(`grep 'function' $paramsFile | grep '^[^#;]' | sed 's/^.* //'`)
 
-# Use the MCRROOT that is set in the Docker image environment
 echo "function to run is $fxnToRun ($nToRun boards requested)"
-echo "MATLAB Runtime libraries are located at ${MCRROOT}"
-
-LD_LIBRARY_PATH=.:${MCRROOT}/runtime/glnxa64
-LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCRROOT}/bin/glnxa64
-LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCRROOT}/sys/os/glnxa64
-LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${MCRROOT}/sys/opengl/lib/glnxa64
-export LD_LIBRARY_PATH
-#echo LD_LIBRARY_PATH is ${LD_LIBRARY_PATH}
 
 numDone=0
 currentNum=1
 while [[ $currentNum -le $nToRun ]]
 do
     echo starting on process $currentNum ...
-    echo "${exe_dir}/smappoi_$fxnToRun $paramsFile $currentNum"
-    ${exe_dir}/smappoi_$fxnToRun $paramsFile $currentNum > /dev/null &
+    echo "python -m smap_tools_python.smappoi_$fxnToRun $paramsFile $currentNum"
+    python -m smap_tools_python.smappoi_$fxnToRun "$paramsFile" "$currentNum" > /dev/null &
     ((currentNum=currentNum+1))
 done
 exit
