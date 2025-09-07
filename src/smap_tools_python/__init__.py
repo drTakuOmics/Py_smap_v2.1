@@ -33,8 +33,16 @@ from .occ import occ
 from .apply_filter import apply_filter
 from .q2r import q2r
 from .approx_mtf import approx_mtf
+from .mtf_mm import mtf_mm
 from .dat_io import write_dat, read_dat_file
 from .rotations_io import write_rotations_file, read_rotations_file
+from .parse_cell_array import parse_cell_array
+from .get_psd import get_psd
+from .assign_jobs import assign_jobs
+from .estimate_snr import estimate_snr
+from .ts import ts
+from .measure_qd import measure_qd
+from .mw import mw
 
 __all__ = [
     "variable_cos_mask",
@@ -77,8 +85,16 @@ __all__ = [
     "apply_filter",
     "q2r",
     "approx_mtf",
+    "mtf_mm",
+    "assign_jobs",
+    "estimate_snr",
+    "ts",
+    "measure_qd",
+    "mw",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
     "read_rotations_file",
+    "parse_cell_array",
+    "get_psd",
 ]
