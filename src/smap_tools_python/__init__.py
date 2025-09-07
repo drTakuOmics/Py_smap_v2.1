@@ -1,6 +1,6 @@
 """Python utilities for SMAP tools."""
 
-from .cos_mask import variable_cos_mask
+from .cos_mask import cos_mask, variable_cos_mask
 from .rrj import rrj
 from .quaternion import Quaternion
 from .constants import def_consts
@@ -24,7 +24,15 @@ from .rotate import (
     rot90j,
     normalize_rotation_matrices,
 )
-from .radial import radial_mean, radial_average, radial_max
+from .radial import (
+    radial_mean,
+    radial_average,
+    radial_max,
+    radialmeanj,
+    radialmean_im,
+    radial_average_im,
+    radialmaxj,
+)
 from .polar_image import polar_image
 from .r_theta import r_theta
 from .g2 import g2
@@ -90,6 +98,7 @@ from .reg2vols import reg2vols
 from .subtract_volume import subtract_volume
 
 __all__ = [
+    "cos_mask",
     "variable_cos_mask",
     "rrj",
     "Quaternion",
@@ -121,6 +130,10 @@ __all__ = [
     "radial_mean",
     "radial_average",
     "radial_max",
+    "radialmeanj",
+    "radialmean_im",
+    "radial_average_im",
+    "radialmaxj",
     "polar_image",
     "r_theta",
     "g2",
