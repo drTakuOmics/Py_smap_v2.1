@@ -142,6 +142,7 @@ from .ep2sp import ep2sp
 from .pdb2ep import pdb2ep
 from .backproject import backproject
 from .smappoi_search_global import smappoi_search_global
+from .smappoi_search_local import smappoi_search_local
 
 
 quaternion = Quaternion
@@ -296,6 +297,7 @@ __all__ = [
     "pdb2ep",
     "backproject",
     "smappoi_search_global",
+    "smappoi_search_local",
     "preprocess",
     "smap2pymol",
     "smap2frealign",
