@@ -43,8 +43,14 @@ def smappoi_search_global(params_file: str | Path, jobref: int = 1) -> None:
 
     # Calculate the search grid to validate parameters.  The result is
     # currently discarded but exercises the translated helper
-    # functions.
-    calculate_search_grid(params)
+    # functions.  ``calculate_search_grid`` expects explicit symmetry
+    # and sampling information so we pull a minimal set of values from
+    # ``params`` with conservative defaults that mirror the behaviour
+    # of the MATLAB version.
+    symmetry = params.get("symmetry", "C1")
+    angular_step = params.get("angle_inc", 3.8)
+    psi_step = params.get("psi_inc", angular_step)
+    calculate_search_grid(symmetry, angular_step, psi_step)
 
     print(
         f"smappoi_search_global: loaded {len(params)} parameters for job {jobref}"
