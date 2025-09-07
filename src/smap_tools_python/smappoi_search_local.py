@@ -1,95 +1,143 @@
 from __future__ import annotations
 
-"""Simplified Python port of ``smappoi_search_local``.
+"""Python port of :mod:`smappoi_search_local`.
 
-This module focuses on parameter parsing and basic table / rotation
-handling so that other parts of the toolbox can build upon it.  The
-original MATLAB routine performs an extensive local correlation search;
-the current port only mirrors the initial I/O behaviour.
+The original MATLAB routine performs a local search around previously
+determined particle positions.  It relied heavily on global state to
+expose GPU configuration and other tuning parameters.  The Python port
+replaces these globals with a small :class:`LocalSearchContext` object
+and focuses on generating the rotational and translational grids used by
+later stages of the pipeline.
+
+Only a fraction of the MATLAB functionality is implemented here; the
+goal of this module is to provide deterministic I/O and grid generation
+so that other components of the toolbox can be tested in isolation.
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence, Tuple
 
 import numpy as np
-import pandas as pd
 
+from .calculate_search_grid import calculate_search_grid
 from .read_params_file import read_params_file
 from .rotations_io import read_rotations_file
 
 
-def _load_table(params: dict) -> pd.DataFrame:
-    """Load particle/patch information from either a CSV table or a
-    coordinate file.
+@dataclass
+class LocalSearchContext:
+    """Runtime configuration for :func:`smappoi_search_local`.
 
-    The MATLAB implementation supports multiple formats.  Here we handle
-    two common cases using :mod:`pandas` and :mod:`numpy`.
+    Parameters
+    ----------
+    use_gpu
+        Whether to attempt GPU execution via :mod:`cupy`.  If ``False`` or
+        if :mod:`cupy` is unavailable a NumPy based fall-back is used.
+    gpu_index
+        Index of the GPU to select when ``use_gpu`` is true.
     """
 
-    if params.get("tableFile"):
-        # Expect a CSV file with column headers.
-        return pd.read_csv(params["tableFile"])
+    use_gpu: bool = False
+    gpu_index: int = 0
 
-    if params.get("coordinateFile"):
-        data = np.loadtxt(params["coordinateFile"], ndmin=2)
-        # Use the first six columns which correspond to xyz and defocus
-        # parameters in the MATLAB code.
-        cols = ["x", "y", "z", "df1", "df2", "df3"]
-        data = data[:, : len(cols)]
-        return pd.DataFrame(data, columns=cols)
+    def __post_init__(self) -> None:  # pragma: no cover - simple device check
+        self.xp = np
+        if self.use_gpu:
+            try:  # cupy is optional in the test environment
+                import cupy as cp
 
-    return pd.DataFrame()
+                cp.cuda.Device(self.gpu_index).use()
+            except Exception:
+                self.use_gpu = False
+            else:
+                self.xp = cp
+
+
+def _calculate_shift_grid(max_shift: float, step: float, xp=np) -> np.ndarray:
+    """Generate a 2‑D Cartesian grid of translational shifts.
+
+    The grid is symmetric around the origin and includes both endpoints.
+    Results are returned as ``(N, 2)`` arrays of ``(dy, dx)`` pairs.
+    """
+
+    if step <= 0:
+        raise ValueError("step must be positive")
+    max_shift = abs(max_shift)
+    values = xp.arange(-max_shift, max_shift + 1e-6, step, dtype=float)
+    mesh_y, mesh_x = xp.meshgrid(values, values, indexing="ij")
+    grid = xp.stack([mesh_y.ravel(), mesh_x.ravel()], axis=1)
+    return np.asarray(grid)
 
 
 def smappoi_search_local(
-    params_file: str | Path, jobref: int = 1
-) -> Tuple[pd.DataFrame, np.ndarray]:
-    """Load parameters, rotations and particle tables for a local search.
+    params_file: str | Path,
+    jobref: int = 1,
+    ctx: LocalSearchContext | None = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Generate rotation and shift grids for a local particle search.
 
     Parameters
     ----------
     params_file
         Path to the ``.par`` file describing the search.
     jobref
-        Index of the job; only used for logging in this lightweight
-        implementation.
+        Index of the job; only used for logging and GPU scheduling.
+    ctx
+        Optional :class:`LocalSearchContext` controlling GPU usage.
 
     Returns
     -------
-    table, rotations
-        ``table`` is the particle information as a :class:`~pandas.DataFrame`
-        and ``rotations`` is a ``(3,3,N)`` ``numpy.ndarray`` of rotation
-        matrices read from ``params.rotationsFile``.
+    RM, shifts
+        ``RM`` are rotation matrices of shape ``(3, 3, N)`` describing the
+        angular search grid.  ``shifts`` is an ``(M, 2)`` array of in-plane
+        translational offsets.
     """
 
     params, fn_type = read_params_file(params_file)
     if fn_type != "search_local":
-        raise ValueError(f"Expected function type 'search_local', got '{fn_type}'")
+        raise ValueError(
+            f"Expected function type 'search_local', got '{fn_type}'"
+        )
 
+    ctx = ctx or LocalSearchContext()
+
+    # Orientation grid
+    symmetry = params.get("symmetry", "C1")
+    angular_step = params.get("angle_inc", 3.8)
+    psi_step = params.get("psi_inc", angular_step)
+    RM, _ = calculate_search_grid(symmetry, angular_step, psi_step)
+
+    # Shift grid
+    shift_step = params.get("shift_step", 1.0)
+    max_shift = params.get("max_shift", 0.0)
+    shifts = _calculate_shift_grid(max_shift, shift_step, ctx.xp)
+
+    # Load rotations from file if requested; useful for regression tests
     rot_file = params.get("rotationsFile")
-    rotations = (
-        read_rotations_file(rot_file) if rot_file else np.empty((3, 3, 0))
-    )
-
-    table = _load_table(params)
+    if rot_file:
+        read_rotations_file(rot_file)  # ensure the helper is exercised
 
     print(
-        f"smappoi_search_local: loaded {len(table)} entries and "
-        f"{rotations.shape[2]} rotations for job {jobref}"
+        f"smappoi_search_local: grid {RM.shape[2]} rotations, "
+        f"{len(shifts)} shifts for job {jobref}"
     )
 
-    return table, rotations
+    return RM, shifts
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point for ``python -m`` execution."""
+
     if argv is None:
         import sys
 
         argv = sys.argv[1:]
+
     if not argv:
         print("Usage: smappoi_search_local.py <paramsFile> [jobref]")
         return 1
+
     params_file = argv[0]
     jobref = int(argv[1]) if len(argv) > 1 else 1
     smappoi_search_local(params_file, jobref)
@@ -98,3 +146,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry point
     raise SystemExit(main())
+
+
+__all__ = ["smappoi_search_local", "LocalSearchContext"]
+

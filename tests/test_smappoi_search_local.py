@@ -1,25 +1,33 @@
 import numpy as np
-import pandas as pd
 from pathlib import Path
 
 from smap_tools_python import smappoi_search_local
-from smap_tools_python.rotations_io import read_rotations_file
 
 
-def test_smappoi_search_local(tmp_path):
-    fixture_dir = Path('tests/fixtures')
+def test_smappoi_search_local_grid_and_shifts(tmp_path):
+    fixture_dir = Path("tests/fixtures")
+
     params_file = tmp_path / "params.par"
     params_file.write_text(
         f"""
 function search_local
-rotationsFile {fixture_dir / 'local_rotations.txt'}
-tableFile {fixture_dir / 'local_table.csv'}
+symmetry C1
+angle_inc 90
+psi_inc 180
+shift_step 2
+max_shift 4
 """
     )
 
-    df, rotations = smappoi_search_local(params_file)
-    expected_df = pd.read_csv(fixture_dir / 'local_table.csv')
-    expected_rot = read_rotations_file(fixture_dir / 'local_rotations.txt')
+    grid, shifts = smappoi_search_local(params_file)
 
-    pd.testing.assert_frame_equal(df, expected_df)
-    assert np.allclose(rotations, expected_rot)
+    expected_grid = (
+        np.loadtxt(fixture_dir / "local_grid.txt")
+        .reshape(-1, 3, 3)
+        .transpose(1, 2, 0)
+    )
+    expected_shifts = np.loadtxt(fixture_dir / "local_shifts.txt")
+
+    assert np.allclose(grid, expected_grid)
+    assert np.allclose(shifts, expected_shifts)
+
