@@ -79,8 +79,12 @@ from .frealign2smap import frealign2smap
 from .pr_quick import pr_quick
 from .parameterize_sf import parameterize_sf
 from .plot_sh import plot_sh
+from .plot_shh import plot_shh
 from .q_fig import q_fig
 from .read_params_file import read_params_file
+from .p3d import p3d
+from .reg2vols import reg2vols
+from .subtract_volume import subtract_volume
 
 __all__ = [
     "variable_cos_mask",
@@ -157,6 +161,7 @@ __all__ = [
     "p3dr",
     "p3do",
     "p3a",
+    "p3d",
     "check_base_dir",
     "gridded_qs",
     "pairwise_qd",
@@ -165,6 +170,11 @@ __all__ = [
     "pr_quick",
     "parameterize_sf",
     "plot_sh",
+    "plot_shh",
+    "q_fig",
+    "read_params_file",
+    "reg2vols",
+    "subtract_volume",
     "q_fig",
     "read_params_file",
     "write_dat",
