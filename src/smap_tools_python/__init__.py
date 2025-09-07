@@ -29,6 +29,7 @@ from .bindata import bindata
 from .particle_diameter import particle_diameter
 from .whoami import whoami
 from .occ import occ
+from .approx_mtf import approx_mtf
 
 __all__ = [
     "variable_cos_mask",
@@ -67,4 +68,5 @@ __all__ = [
     "particle_diameter",
     "whoami",
     "occ",
+    "approx_mtf",
 ]

@@ -38,6 +38,8 @@ def crop_or_pad(arr, new_shape, pad_value=0):
         cropped = np.pad(cropped, pads, mode='constant', constant_values=pad_value)
     return cropped
 
+
+
 def cutj(arr, new_shape):
     """Crop or pad ``arr`` to ``new_shape`` using the data mean for padding.
 
@@ -84,4 +86,3 @@ def extendj(arr, new_shape, pad_value=0):
     """
     arr = np.asarray(arr)
     return crop_or_pad(arr, new_shape, pad_value)
-
