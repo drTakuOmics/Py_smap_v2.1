@@ -116,6 +116,10 @@ def radialmaxj(arr: np.ndarray) -> np.ndarray:
     return out
 
 
+# MATLAB-style aliases
+radialAverageIm = radial_average_im
+radialmeanIm = radialmean_im
+
 __all__ = [
     "radial_mean",
     "radial_average",
@@ -124,4 +128,6 @@ __all__ = [
     "radialmean_im",
     "radial_average_im",
     "radialmaxj",
+    "radialAverageIm",
+    "radialmeanIm",
 ]

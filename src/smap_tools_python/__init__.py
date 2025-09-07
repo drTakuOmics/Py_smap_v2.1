@@ -1,6 +1,6 @@
 """Python utilities for SMAP tools."""
 
-from .cos_mask import cos_mask, variable_cos_mask
+from .cos_mask import cos_mask, variable_cos_mask, cosMask
 from .rrj import rrj
 from .quaternion import Quaternion
 from .constants import def_consts
@@ -32,6 +32,8 @@ from .radial import (
     radialmean_im,
     radial_average_im,
     radialmaxj,
+    radialAverageIm,
+    radialmeanIm,
 )
 from .polar_image import polar_image
 from .r_theta import r_theta
@@ -49,7 +51,7 @@ from .sum_frames import sum_frames
 from .whoami import whoami
 from .occ import occ
 from .apply_filter import apply_filter
-from .q2r import q2r
+from .q2r import q2r, q2R
 from .approx_mtf import approx_mtf
 from .mtf_mm import mtf_mm
 from .dat_io import write_dat, read_dat_file
@@ -98,12 +100,17 @@ from .lb_bh_to_rrs import lb_bh_to_rrs
 from .get_pref import get_pref
 from .reg2vols import reg2vols
 from .subtract_volume import subtract_volume
+from .q_to_density import q_to_density
+
+quaternion = Quaternion
 
 __all__ = [
     "cos_mask",
     "variable_cos_mask",
+    "cosMask",
     "rrj",
     "Quaternion",
+    "quaternion",
     "def_consts",
     "zp",
     "fov_to_num",
@@ -136,6 +143,8 @@ __all__ = [
     "radialmean_im",
     "radial_average_im",
     "radialmaxj",
+    "radialAverageIm",
+    "radialmeanIm",
     "polar_image",
     "r_theta",
     "g2",
@@ -157,6 +166,7 @@ __all__ = [
     "occ",
     "apply_filter",
     "q2r",
+    "q2R",
     "approx_mtf",
     "mtf_mm",
     "gpu_whos",
@@ -187,6 +197,7 @@ __all__ = [
     "lb_bh_to_rrs",
     "get_pref",
     "check_base_dir",
+    "q_to_density",
     "gridded_qs",
     "pairwise_qd",
     "max_interp_f",

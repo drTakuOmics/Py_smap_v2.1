@@ -45,4 +45,10 @@ def variable_cos_mask(im_size: int, mask_edges, a_per_pix: float):
     return cos_mask(im_size, mask_edges, a_per_pix)
 
 
-__all__ = ["cos_mask", "variable_cos_mask"]
+def cosMask(im_size: int, mask_edges, a_per_pix: float):
+    """MATLAB-style alias of :func:`cos_mask`."""
+
+    return cos_mask(im_size, mask_edges, a_per_pix)
+
+
+__all__ = ["cos_mask", "variable_cos_mask", "cosMask"]
