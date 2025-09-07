@@ -126,6 +126,8 @@ from .run_ctffind import run_ctffind
 from .make_template_stack import make_template_stack
 from .write_mrc_header import write_mrc_header
 from .dose_filter import dose_filter
+from .icos import icos
+from .get_icos import get_icos
 
 
 quaternion = Quaternion
@@ -264,6 +266,8 @@ __all__ = [
     "make_template_stack",
     "write_mrc_header",
     "dose_filter",
+    "icos",
+    "get_icos",
     "smap2pymol",
     "smap2frealign",
     "smap2cistem",
