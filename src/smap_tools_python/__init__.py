@@ -23,6 +23,10 @@ from .radial import radial_mean, radial_average, radial_max
 from .g2 import g2
 from .mean import mean
 from .nm import nm
+from .rotate import rotate3d_vector, rotate2d_matrix, rotate3d_matrix, rot90j
+from .radial import radial_mean, radial_average, radial_max
+from .g2 import g2
+from .mean import mean
 from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
 from .bindata import bindata

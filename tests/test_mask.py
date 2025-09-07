@@ -26,3 +26,4 @@ def test_mask_volume_shell_mode():
     vol[2, 2, 2] = 1
     out, mask, D = mask_volume(vol, (1, 1), mode="shell")
     assert mask.sum() > 0
+
