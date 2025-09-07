@@ -26,6 +26,7 @@ from .mean import mean
 from .nm import nm
 from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
+from .ri import tr, ri
 from .bindata import bindata
 from .particle_diameter import particle_diameter
 from .whoami import whoami
@@ -78,6 +79,8 @@ __all__ = [
     "getcp",
     "read_mrc",
     "write_mrc",
+    "tr",
+    "ri",
     "bindata",
     "particle_diameter",
     "whoami",
