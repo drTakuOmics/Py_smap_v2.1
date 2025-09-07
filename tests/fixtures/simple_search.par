@@ -1,0 +1,5 @@
+function search_global
+nCores 1
+imageFile {imageFile}
+modelFile {modelFile}
+angle_inc 10

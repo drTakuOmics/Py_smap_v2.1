@@ -20,11 +20,43 @@ from pathlib import Path
 import sys
 from typing import Sequence
 
+import numpy as np
+
+from emClarity_FFT import has_gpu
+
 from .read_params_file import read_params_file
 from .calculate_search_grid import calculate_search_grid
+from .pad_for_fft import pad_for_fft
+from .mrc import read_mrc
+from .fft import ftj, iftj
+
+try:  # pragma: no cover - optional GPU dependency
+    import cupy as cp
+except Exception:  # pragma: no cover - optional GPU dependency
+    cp = None
 
 
-def smappoi_search_global(params_file: str | Path, jobref: int = 1) -> None:
+def _schedule_device(jobref: int) -> bool:
+    """Select the GPU for ``jobref`` if available."""
+    if not has_gpu() or cp is None:  # pragma: no cover - no GPU available
+        print("smappoi_search_global: no GPU backend available, running on CPU")
+        return False
+    n_dev = cp.cuda.runtime.getDeviceCount()
+    dev = int((jobref - 1) % n_dev)
+    cp.cuda.Device(dev).use()
+    print(f"smappoi_search_global: using GPU device {dev}")
+    return True
+
+
+def _prepare_fft(path: str | Path, use_gpu: bool) -> np.ndarray:
+    data, _ = read_mrc(path)
+    data = pad_for_fft(data)
+    return ftj(data, use_gpu=use_gpu)
+
+
+def smappoi_search_global(
+    params_file: str | Path, jobref: int = 1
+) -> tuple[float, tuple[int, int]]:
     """Run a minimal global search using Python utilities.
 
     Parameters
@@ -32,8 +64,9 @@ def smappoi_search_global(params_file: str | Path, jobref: int = 1) -> None:
     params_file
         Path to the ``.par`` file describing the search.
     jobref
-        Index of the job for GPU scheduling.  Only used for logging
-        in this lightweight implementation.
+        Index of the job for GPU scheduling.  When multiple workers are
+        launched, each worker receives a distinct ``jobref`` allowing
+        deterministic GPU assignment.
     """
     params, fn_type = read_params_file(params_file)
     if fn_type != "search_global":
@@ -55,6 +88,15 @@ def smappoi_search_global(params_file: str | Path, jobref: int = 1) -> None:
     print(
         f"smappoi_search_global: loaded {len(params)} parameters for job {jobref}"
     )
+    use_gpu = _schedule_device(jobref)
+
+    img_fft = _prepare_fft(params["imageFile"], use_gpu)
+    model_fft = _prepare_fft(params["modelFile"], use_gpu)
+    cc = iftj(img_fft * np.conj(model_fft), use_gpu=use_gpu)
+    max_pos = tuple(int(p) for p in np.unravel_index(np.argmax(cc), cc.shape))
+    max_val = float(cc[max_pos].real)
+    print(f"smappoi_search_global: best match {max_val:.3f} at {max_pos}")
+    return max_val, max_pos
 
 
 def main(argv: Sequence[str] | None = None) -> int:
