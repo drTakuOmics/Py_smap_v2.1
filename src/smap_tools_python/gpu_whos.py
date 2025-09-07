@@ -53,3 +53,7 @@ def gpu_whos(namespace=None):
     if info:
         lines.append(f"total is {total/1e9:6.4f} GB")
     return "\n".join(lines), info, total
+
+# MATLAB compatibility alias
+gpuwhos = gpu_whos
+
