@@ -112,7 +112,6 @@ from .datasets import (
     getDatasets,
     putDataset,
 )
-from .parse_excel_file import parse_excel_file, parseExcelFile
 from .smap2pymol import smap2pymol
 from .smap2frealign import smap2frealign
 from .smap2cistem import smap2cistem
