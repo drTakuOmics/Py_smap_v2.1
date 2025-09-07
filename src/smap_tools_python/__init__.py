@@ -51,6 +51,9 @@ from .measure_qd import measure_qd
 from .mw import mw
 from .cif import read_cif_file
 from .pdb import read_pdb_file
+from .ccf import ccf
+from .cluster_im_by_thr import cluster_im_by_thr
+from .dust import dust
 
 __all__ = [
     "variable_cos_mask",
@@ -108,6 +111,9 @@ __all__ = [
     "mw",
     "read_cif_file",
     "read_pdb_file",
+    "ccf",
+    "cluster_im_by_thr",
+    "dust",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
