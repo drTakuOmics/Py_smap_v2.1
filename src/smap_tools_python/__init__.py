@@ -26,6 +26,7 @@ from .mean import mean
 from .nm import nm
 from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
+from .ri import tr, ri
 from .bindata import bindata
 from .particle_diameter import particle_diameter
 from .whoami import whoami
@@ -43,6 +44,8 @@ from .estimate_snr import estimate_snr
 from .ts import ts
 from .measure_qd import measure_qd
 from .mw import mw
+from .cif import read_cif_file
+from .pdb import read_pdb_file
 
 __all__ = [
     "variable_cos_mask",
@@ -78,6 +81,8 @@ __all__ = [
     "getcp",
     "read_mrc",
     "write_mrc",
+    "tr",
+    "ri",
     "bindata",
     "particle_diameter",
     "whoami",
@@ -91,6 +96,8 @@ __all__ = [
     "ts",
     "measure_qd",
     "mw",
+    "read_cif_file",
+    "read_pdb_file",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
