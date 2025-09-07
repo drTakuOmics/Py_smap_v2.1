@@ -44,6 +44,9 @@ from .dat_io import write_dat, read_dat_file
 from .rotations_io import write_rotations_file, read_rotations_file
 from .parse_cell_array import parse_cell_array
 from .get_psd import get_psd
+from .gpu_whos import gpu_whos
+from .make_filt import make_filt
+from .make_phase_plate import make_phase_plate
 from .assign_jobs import assign_jobs
 from .estimate_snr import estimate_snr
 from .ts import ts
@@ -117,6 +120,9 @@ __all__ = [
     "q2r",
     "approx_mtf",
     "mtf_mm",
+    "gpu_whos",
+    "make_filt",
+    "make_phase_plate",
     "assign_jobs",
     "estimate_snr",
     "ts",

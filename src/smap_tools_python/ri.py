@@ -78,6 +78,7 @@ def tw(array, filename: str | Path, bps: int = 32):
 
     tifffile.imwrite(str(path), np.moveaxis(arr, -1, 0))
 
+
 def ri(filename: str | Path):
     """Read an image or volume in TIFF or MRC format.
 
