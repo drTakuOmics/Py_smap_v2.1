@@ -1,25 +1,5 @@
 import numpy as np
-
-
-def rrj(shape):
-    """Compute normalized radial coordinates for an N-dimensional grid.
-
-    Parameters
-    ----------
-    shape : tuple of int
-        Desired output shape.
-
-    Returns
-    -------
-    numpy.ndarray
-        Array of radial distances normalized by twice the maximum radius.
-    """
-    coords = [np.arange(s) - (s // 2) for s in shape]
-    grids = np.meshgrid(*coords, indexing="ij", sparse=True)
-    sq = sum(g.astype(float) ** 2 for g in grids)
-    R = np.sqrt(sq)
-    max_radius = max(s // 2 for s in shape)
-    return R / (2 * max_radius)
+from .rrj import rrj
 
 
 def variable_cos_mask(im_size, mask_edges, a_per_pix):

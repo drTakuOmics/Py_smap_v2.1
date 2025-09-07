@@ -1,6 +1,7 @@
 """Python utilities for SMAP tools."""
 
-from .cos_mask import variable_cos_mask, rrj
+from .cos_mask import variable_cos_mask
+from .rrj import rrj
 from .quaternion import Quaternion
 from .constants import def_consts
 from .zp import zp
@@ -14,7 +15,7 @@ from .crop_pad import crop_or_pad, cutj, extendj
 from .resize_for_fft import resize_for_fft
 from .pad_for_fft import pad_for_fft
 from .phase_shift import apply_phase_shifts
-from .crop_patch import crop_patch_from_image
+from .crop_patch import crop_patch_from_image, crop_patch_from_image3
 from .tile_images import tile_images
 from .rotate import (
     rotate3d_vector,
@@ -98,6 +99,7 @@ __all__ = [
     "extendj",
     "apply_phase_shifts",
     "crop_patch_from_image",
+    "crop_patch_from_image3",
     "tile_images",
     "resize_for_fft",
     "pad_for_fft",
