@@ -44,6 +44,7 @@ from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
 from .mr import mr
 from .ri import tr, ri, tw
+from .read_dm_file import read_dm_file
 from .bindata import bindata
 from .particle_diameter import particle_diameter
 from .resize_f import resize_F
@@ -119,6 +120,8 @@ from .smap2cistem import smap2cistem
 from .register_multiple_fragments import register_multiple_fragments
 from .ipcc import ipcc, ipcc_m
 from .write_search_params import write_search_params, writeSearchParams
+from .run_ctffind import run_ctffind
+from .make_template_stack import make_template_stack
 
 
 quaternion = Quaternion
@@ -251,6 +254,8 @@ __all__ = [
     "getDataset",
     "getDatasets",
     "putDataset",
+    "run_ctffind",
+    "make_template_stack",
     "smap2pymol",
     "smap2frealign",
     "smap2cistem",
