@@ -49,7 +49,7 @@ from .parse_cell_array import parse_cell_array
 from .get_psd import get_psd
 from .psd_filter import psd_filter
 from .psd_filter_3d import psd_filter_3d
-from .gpu_whos import gpu_whos
+from .gpu_whos import gpu_whos, gpuwhos
 from .make_filt import make_filt
 from .make_phase_plate import make_phase_plate
 from .assign_jobs import assign_jobs
@@ -58,6 +58,7 @@ from .ts import ts
 from .bump_q import bump_q
 from .calculate_search_grid import calculate_search_grid
 from .measure_qd import measure_qd
+from .normalize_rm import normalize_rm
 from .mw import mw
 from .cif import read_cif_file
 from .pdb import read_pdb_file
@@ -114,6 +115,7 @@ __all__ = [
     "rotate3d_matrix",
     "rot90j",
     "normalize_rotation_matrices",
+    "normalize_rm",
     "radial_mean",
     "radial_average",
     "radial_max",
@@ -140,6 +142,7 @@ __all__ = [
     "approx_mtf",
     "mtf_mm",
     "gpu_whos",
+    "gpuwhos",
     "make_filt",
     "make_phase_plate",
     "assign_jobs",
