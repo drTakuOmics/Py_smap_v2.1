@@ -79,6 +79,8 @@ from .frealign2smap import frealign2smap
 from .pr_quick import pr_quick
 from .parameterize_sf import parameterize_sf
 from .plot_sh import plot_sh
+from .q_fig import q_fig
+from .read_params_file import read_params_file
 
 __all__ = [
     "variable_cos_mask",
@@ -163,6 +165,8 @@ __all__ = [
     "pr_quick",
     "parameterize_sf",
     "plot_sh",
+    "q_fig",
+    "read_params_file",
     "write_dat",
     "read_dat_file",
     "write_rotations_file",
