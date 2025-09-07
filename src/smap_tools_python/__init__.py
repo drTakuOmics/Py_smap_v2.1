@@ -44,6 +44,7 @@ from .getcp import get_center_pixel, getcp
 from .mrc import read_mrc, write_mrc
 from .mr import mr
 from .ri import tr, ri, tw
+from .read_dm_file import read_dm_file
 from .bindata import bindata
 from .particle_diameter import particle_diameter
 from .resize_f import resize_F
