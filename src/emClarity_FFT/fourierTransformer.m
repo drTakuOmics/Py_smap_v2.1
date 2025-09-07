@@ -98,9 +98,9 @@ classdef fourierTransformer < handle
       end
       
       if isempty([obj.plan_FWD,obj.plan_INV])
-        [ ft, obj.plan_FWD, obj.plan_INV ] = mexFFT(inputVol,obj.invTrim);
+        ft = py.smap_tools_python.fft.ftj(inputVol); obj.plan_FWD = []; obj.plan_INV = [];
       else
-        [ ft ] = mexFFT(inputVol,obj.invTrim,obj.plan_FWD, obj.plan_INV);    
+        ft = py.smap_tools_python.fft.ftj(inputVol);    
       end
       
       if (doNorm && ~doCenter)
@@ -124,7 +124,7 @@ classdef fourierTransformer < handle
         doNorm = 0;
       end
 
-      [ ft ] = mexFFT(inputVol,obj.invTrim,obj.plan_FWD, obj.plan_INV);
+      ft = py.smap_tools_python.fft.iftj(inputVol);
       
       if (doNorm)
         ft = ft .* (obj.normalization_factor^doNorm);
@@ -147,11 +147,11 @@ classdef fourierTransformer < handle
     end
     
     function delete(obj)
-      % Destroy the cuda plans. mexFFT knows to do this because the
-      % first argument has one element;
+      % Destroy the cuda plans (legacy mex implementation handled this via a
+      % first argument used by the original mex code.
       if ~(isempty(obj.plan_FWD) && isempty(obj.plan_INV))
         
-          mexFFT(gpuArray(1),obj.invTrim,obj.plan_FWD,obj.plan_INV);
+          % Python FFT does not require explicit cleanup
          
       end
     end 

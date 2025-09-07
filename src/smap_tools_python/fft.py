@@ -1,14 +1,27 @@
-import numpy as np
+from emClarity_FFT import fft as _fft_impl, ifft as _ifft_impl
 
 
-def ftj(inref):
-    """Forward FFT with MATLAB-like normalization."""
-    Npix = np.prod(inref.shape)
-    return np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(inref))) / np.sqrt(Npix)
+def ftj(inref, use_gpu=False):
+    """Forward FFT with MATLAB-like normalization.
+
+    Parameters
+    ----------
+    inref : array-like
+        Input volume or image.
+    use_gpu : bool, optional
+        Perform the computation on the GPU when CuPy is available.
+    """
+    return _fft_impl(inref, use_gpu=use_gpu)
 
 
-def iftj(inref):
-    """Inverse FFT matching MATLAB's iftj.m."""
-    Npix = np.prod(inref.shape)
-    inref = np.nan_to_num(inref)
-    return np.fft.fftshift(np.real(np.fft.ifftn(np.fft.ifftshift(inref)))) * np.sqrt(Npix)
+def iftj(inref, use_gpu=False):
+    """Inverse FFT matching MATLAB's ``iftj.m``.
+
+    Parameters
+    ----------
+    inref : array-like
+        Input volume or image in Fourier space.
+    use_gpu : bool, optional
+        Perform the computation on the GPU when CuPy is available.
+    """
+    return _ifft_impl(inref, use_gpu=use_gpu)
