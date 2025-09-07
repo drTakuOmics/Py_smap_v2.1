@@ -130,6 +130,7 @@ from .dose_filter import dose_filter
 from .gain_corr import gain_corr
 from .icos import icos
 from .get_icos import get_icos
+from .estimate_detector import estimate_detector
 
 
 quaternion = Quaternion
@@ -272,6 +273,7 @@ __all__ = [
     "gain_corr",
     "icos",
     "get_icos",
+    "estimate_detector",
     "smap2pymol",
     "smap2frealign",
     "smap2cistem",
