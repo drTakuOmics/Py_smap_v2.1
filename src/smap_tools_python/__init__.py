@@ -78,6 +78,9 @@ from .ccf import ccf
 from .ccfn import ccfn
 from .ccfv import ccfv
 from .ccff import ccff
+from .ccff_gpu import ccff_gpu
+from .templates import templates
+from .preprocess import preprocess
 from .cluster_im_by_thr import cluster_im_by_thr
 from .dust import dust
 from .proj_view import proj_view
@@ -218,6 +221,8 @@ __all__ = [
     "ccfn",
     "ccfv",
     "ccff",
+    "ccff_gpu",
+    "templates",
     "cluster_im_by_thr",
     "dust",
     "proj_view",
@@ -274,6 +279,7 @@ __all__ = [
     "icos",
     "get_icos",
     "estimate_detector",
+    "preprocess",
     "smap2pymol",
     "smap2frealign",
     "smap2cistem",
