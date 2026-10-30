@@ -142,6 +142,11 @@ def compare_outputs(ref: Path, test: Path, tol: dict | None = None) -> dict:
         chk["highVals"] = dict(n=[len(ka), len(kb)], n_common=len(common), max_abs_score=d,
                                ok=(len(ka) == len(kb) == len(common)) and (d is None or d <= tol["score"]),
                                note="rotation indices of repeated grid orientations can differ")
+    for c in chk.values():                      # numpy scalars -> JSON-serialisable Python types
+        c["ok"] = bool(c["ok"])
+        for k, v in list(c.items()):
+            if isinstance(v, np.generic):
+                c[k] = v.item()
     rep["all_ok"] = all(c["ok"] for c in chk.values())
     return rep
 

@@ -25,7 +25,7 @@ usage:
   python -m smap.export smap OUT_DIR [OUT_DIR ...] --micrograph NAME [--offset X0 Y0]
                         [--min-score 8] [--images] -o particles.star
   python -m smap.export rnf213 all_candidates_registration.csv --par search.par
-                        [--min-score 8] -o particles.star
+                        --micrograph NAME [--min-score 8] -o particles.star
 """
 
 from __future__ import annotations
@@ -199,7 +199,7 @@ def main(argv=None) -> int:
     a2 = sub.add_parser("rnf213", help="RNF213 all_candidates_registration.csv")
     a2.add_argument("csv")
     a2.add_argument("--par", required=True, help="one tile's search.par (optics)")
-    a2.add_argument("--micrograph", default=None)
+    a2.add_argument("--micrograph", required=True, help="rlnMicrographName, e.g. the *_fractions.mrc name")
     for a in (a1, a2):
         a.add_argument("-o", "--out", default="particles.star")
         a.add_argument("--min-score", type=float, default=None, help="keep score_final >= this")

@@ -698,12 +698,16 @@ def main(argv=None) -> int:
             def flush(self):
                 for t in self.s:
                     t.flush()
-        old = sys.stdout
-        sys.stdout = _Tee(old, fh)
+        old, old_err = sys.stdout, sys.stderr
+        sys.stdout, sys.stderr = _Tee(old, fh), _Tee(old_err, fh)   # warnings/tracebacks too
         try:
             return _main(a, ap)
+        except BaseException:
+            import traceback
+            traceback.print_exc()
+            raise
         finally:
-            sys.stdout = old
+            sys.stdout, sys.stderr = old, old_err
             fh.close()
     return _main(a, ap)
 

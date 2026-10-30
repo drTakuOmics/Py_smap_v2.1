@@ -36,6 +36,7 @@ def test_batch_sizes_agree_and_path_map(tile):
     assert main([str(_par(tile, "b8x")), "--device", "cpu", "--batch-size", "8", "--path-map", pm,
                  "--output-dir", str(tile / "b8")]) == 0
     rep = compare_outputs(tile / "b1", tile / "b8")
+    json.dumps(rep)                                  # --json must not fail on numpy scalars
     print(format_report(rep))
     assert rep["all_ok"], format_report(rep)
     assert rep["particles"]["n_paired"] >= 1

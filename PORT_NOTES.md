@@ -178,3 +178,9 @@ Nothing here has been compared with a MATLAB v2.1 run on experimental data yet.
 16. Flat-fielded scores are only complete above `x_complete` (raw CC retained only above `arbThr`);
     `search_status.json` reports it. Search-tail counts are correlated evaluations, not particles;
     the cluster-based N_eff estimate there is informational and needs particle-free controls.
+17. Stage-B refinement scores a patch the size of the template box (circular correlation). When
+    the CTF delocalisation (≈ λ·Δf/d at resolution d) approaches the box size, the patch score
+    is aliased: in a synthetic test with a 34-px box at 1.5 Å/px and 1.5 µm defocus the stage-B
+    score was 0.4–1.0 for particles with search score 7–8, and the defocus/angle scans moved
+    away from the truth; with a 78-px box at 0.8 µm it tracked the search score (5.7 → 9.7).
+    RNF213 boxes are large, so the effect should be small there; not changed.
