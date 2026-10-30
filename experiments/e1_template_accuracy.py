@@ -1,5 +1,5 @@
 """E1: accuracy of SMAP's Fourier-slice templates vs analytic projections."""
-import sys, math, numpy as np, torch
+import sys, numpy as np, torch
 sys.path.insert(0, '.')
 from smap.search_global import _templates
 from smap.utils import normalize_rm

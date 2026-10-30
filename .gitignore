@@ -1,6 +1,10 @@
 __pycache__/
 *.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
 *.mrc
+!image/*.mrc
 
-# Ignore MATLAB autosave files
+# MATLAB autosave files
 *.asv

@@ -19,7 +19,7 @@ from ._sf_table import SF_TABLE
 from .ctf import def_consts
 from .io import mw
 from .utils import (apply_phase_shifts_3d_real, crop_or_pad, matlab_mode,
-                    particle_diameter, resize_for_fft, rrj)
+                    particle_diameter, resize_for_fft)
 
 W_POT = 4.871  # "Rullgard's calculation" (mean inner potential offset)
 
@@ -61,7 +61,7 @@ def read_cif_file(fn: str | Path, chains: list[str] | None = None) -> Atoms:
     """@smap/read_cif_file.m: lines starting with 'ATOM'; awk columns
     $2 id, $3 type_symbol, $19 auth_asym_id, $11-$13 xyz, $15 B."""
     xs, ys, zs, el, bf, ch = [], [], [], [], [], []
-    with open(fn, "r", errors="replace") as fh:
+    with open(fn, errors="replace") as fh:
         for line in fh:
             if not line.startswith("ATOM"):
                 continue

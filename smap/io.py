@@ -83,7 +83,7 @@ def read_params_file(fn: str | Path, fn_type: str | None = None):
     text between the first and second occurrence of the field name.
     """
     lines_in = []
-    with open(fn, "r", newline="") as fh:
+    with open(fn, newline="") as fh:
         for raw in fh:
             line = raw[:-1] if raw.endswith("\n") else raw  # fgetl drops only '\n'
             if "#" not in line and line != "":

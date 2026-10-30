@@ -22,7 +22,6 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 
 from . import io as sio
-from .rot import rotm_to_quat_robust
 
 DEFAULT_TOL = dict(score=0.05, grid_px=1.0, opt_px=0.5, angle_deg=1.0, defocus_nm=1.5,
                    map_rel=1e-3, sh_log10=0.05)

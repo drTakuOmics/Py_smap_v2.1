@@ -1,0 +1,225 @@
+% Generate reference outputs from the ORIGINAL SMAP v2.1 MATLAB code (run in Octave).
+%
+% usage (from the original repo's src/smap_tools directory, so that @smap resolves):
+%   octave --no-gui -q --eval "addpath(pwd); out_dir='/path/to/refs'; par_file='/path/sample_search.par'; cif_file='/path/6ek0_LSU.cif'; source('/path/to/make_reference.octave')"
+%
+% The main-loop section copies smappoi_search_global.m lines 290-560 verbatim, except
+% that gpuArray is dropped and emClarity's fourierTransformer (cuFFT R2C/C2R, unscaled)
+% is emulated with fft2 + Hermitian completion.
+
+1;  % marks this file as a script so the helper functions below can be defined in it
+
+% ---- Octave shims for MATLAB functions missing in Octave 8 (no effect on SMAP math)
+function m = nanmean(x, dim)
+  if nargin < 2, x = x(:); dim = 1; end
+  m = mean(x, dim, "omitnan");
+end
+function s = nansum(x, dim)
+  if nargin < 2, s = sum(x(~isnan(x))); else, x(isnan(x)) = 0; s = sum(x, dim); end
+end
+function x = gather(x)   % gpuArray gather is a no-op on CPU arrays
+end
+function c = split(s, d)   % MATLAB split(str, delimiter) for a char row vector
+  c = strsplit(s, d)';
+end
+
+
+pkg load image
+rand('seed', 7); randn('seed', 7);
+global params
+
+% ------------------------------------------------------------------ helpers
+a2 = rand(10, 12);
+ref.cop_crop2 = smap.cropOrPad(a2, [7 9]);
+ref.cop_pad2 = smap.cropOrPad(a2, [15 16], 0);
+a3 = rand(9, 9, 9);
+ref.cop_a3 = a3; ref.cop_a2 = a2;
+ref.cop_crop3 = smap.cropOrPad(a3, [6 6 6]);
+ref.cop_pad3 = smap.cropOrPad(a3, [12 12 12], 2.5);
+b = rand(50, 46);
+ref.rff_in = b;
+ref.rff_pad = smap.resizeForFFT(b, 'pad', 0);
+ref.rff_crop = smap.resizeForFFT(b, 'crop');
+ref.rrj9 = smap.rrj(zeros(9, 9)); ref.rrj10 = smap.rrj(zeros(10, 10));
+ref.rrj9c = smap.rrj(zeros(9, 9, 9)); ref.rrj10c = smap.rrj(zeros(10, 10, 10));
+c = randn(33, 20) * 3 + 1; ref.nm_in = c; ref.nm_out = smap.nm(c);
+im = rand(64, 64); ref.rsz_im = im; ref.rsz_im_out = smap.resize_F(im, 0.688, 'newSize');
+vol = rand(40, 40, 40); ref.rsz_vol = vol; ref.rsz_vol_out = smap.resize_F(vol, 0.688, 'newSize');
+r = rand(64, 64); ref.rm_in = r; [ref.rm_o1, ref.rm_o2] = smap.radialmeanj(r);
+q = randn(64, 64); ref.psd_in = q; [ref.psd_f, ref.psd_im] = smap.psdFilter(q, 'sqrt');
+w = randn(64, 64); ref.mcc_in = w; ref.mcc_out = smap.mask_central_cross(w);
+[X, Y, Z] = meshgrid(1:40, 1:40, 1:40);
+blob = single(exp(-((X - 18).^2 + (Y - 22).^2 + (Z - 20).^2) / 30) + 0.02 * randn(40, 40, 40));
+ref.mav_in = blob;  % mask_a_volume: Octave bwdist is 2-D only, tested in Python
+ref.aps_out = smap.applyPhaseShifts(double(blob), [1.3 -2.7 0.4]);
+ref.aps_out_int = smap.applyPhaseShifts(double(blob), [2 -3 1]);
+params = struct('Cs', 2.7e-3, 'Cc', 2.7e-3, 'V_acc', 300000, 'deltaE', 0.7, 'a_i', 50e-6, ...
+                'aPerPix', 1.5, 'F_abs', 0);
+ref.ctf_df = [440.7 318.9 0.96; 400 410 -0.2];
+ref.ctf_out = smap.ctf(ref.ctf_df, [64 64]);
+ref.ctf_out_odd = smap.ctf(ref.ctf_df, [63 63]);
+[ref.grid_R, ref.grid_EA] = smap.calculate_search_grid('D1', 10, 10);
+ref.aj = smap.assignJobs(100, 7, 3);
+ref.aj_last = smap.assignJobs(100, 7, 7);
+xx = rand(500, 1) * 12; yy = rand(500, 1); ee = 0:1.5:10;
+ref.bd_x = xx; ref.bd_y = yy; ref.bd_e = ee;
+[ref.bd_ym, ref.bd_yb] = smap.bindata(yy, xx, ee);
+p = smap.readParamsFile(par_file);
+ref.par_defocus = p.defocus; ref.par_aPerPix = p.aPerPix; ref.par_aPerPix_search = p.aPerPix_search;
+ref.par_nCores = p.nCores; ref.par_arbThr = p.arbThr; ref.par_Cs = p.Cs; ref.par_margin = p.margin_pix;
+ref.par_T = p.T_sample; ref.par_modelFile = p.modelFile; ref.par_mask = p.mask_params;
+
+% ------------------------------------------------------------------ main loop
+Npix_im = [96 96]; N0 = 96; N1 = 96;
+SPV = single(exp(-((X(1:32,1:32,1:32) - 15).^2 / 20 + (Y(1:32,1:32,1:32) - 18).^2 / 35 + ...
+      (Z(1:32,1:32,1:32) - 16).^2 / 12)) + 0.3 * single(exp(-((X(1:32,1:32,1:32) - 22).^2 + ...
+      (Y(1:32,1:32,1:32) - 12).^2 + (Z(1:32,1:32,1:32) - 20).^2) / 8)));
+imref = single(randn(96, 96));
+fPSD = single(ifftshift(0.5 + rand(96, 96)));
+params.aPerPix = 1.5;
+dfs = [440 430 0.3; 450 440 0.3];
+nDfs = 2;
+nRotations = 5;
+R = zeros(3, 3, nRotations);
+for i = 1:nRotations
+  [Q, ~] = qr(randn(3)); if det(Q) < 0, Q(:, 1) = -Q(:, 1); end
+  R(:, :, i) = Q;
+end
+R(:, :, 1) = eye(3);
+R = smap.normalizeRM(R);
+arbThr = 2.5; F_abs = 0;
+ref.ml_SPV = SPV; ref.ml_imref = imref; ref.ml_fPSD = fPSD; ref.ml_dfs = dfs; ref.ml_R = R;
+ref.ml_arbThr = arbThr;
+
+Npix = single(min(size(SPV)));
+V = SPV + 1i * F_abs * SPV;
+V_F = double(fftshift(fftn(ifftshift(V))));
+cp = floor(size(V_F, 1) ./ 2) + 1;
+V_F(cp, cp, cp) = 0;
+V_Fr = double(real(V_F)); V_Fi = double(imag(V_F));
+for k = 1:2
+  m = Npix; p_ = ceil(m / 2); idx_small_f{k} = [p_ + 1:m 1:p_];
+  p_ = floor(m / 2); idx_small_i{k} = [p_ + 1:m 1:p_];
+end
+[x, y, z] = meshgrid(1:Npix, 1:Npix, 1:Npix);
+x0 = x(:, :, cp) - cp; y0 = y(:, :, cp) - cp; z0 = zeros(Npix, Npix);
+xyz = double([x0(:) y0(:) z0(:)]);
+dummyX = 1:size(V_Fr, 1); dummyY = 1:size(V_Fr, 2); dummyZ = 1:size(V_Fr, 3);
+CTF = smap.ctf(dfs, [Npix_im(1) Npix_im(2)]);
+for i = 1:nDfs, CTF(:, :, i) = ifftshift(CTF(:, :, i)); end
+CTF = imag(CTF);
+Npix_im_norm = sqrt(prod(Npix_im));
+imref_F = fftn(ifftshift(single(imref))) ./ Npix_im_norm;
+cp_im = floor(Npix_im ./ 2) + 1;
+% rowColNums exactly as in the source
+xDim = Npix_im(1); yDim = Npix_im(2); oldDim = [Npix Npix]; newDim = [xDim yDim];
+for i = 1:2
+  if mod(oldDim(i), 2) == 1
+    centerPixNew(i) = floor(newDim(i) ./ 2) + 1;
+  else
+    centerPixNew(i) = floor(newDim(i) ./ 2 + 1);
+  end
+end
+rowColInds = {[num2str(centerPixNew(1) - oldDim(1) ./ 2) ':' num2str((centerPixNew(1) + oldDim(1) ./ 2) - 1)], ...
+              [num2str(centerPixNew(2) - oldDim(2) ./ 2) ':' num2str((centerPixNew(2) + oldDim(2) ./ 2) - 1)]};
+dummy = reshape(1:(xDim) * (yDim), (xDim), (yDim));
+eval(['rowColNums=dummy(' rowColInds{1} ',' rowColInds{2} ');']);
+temp_image = zeros(N0, N1, 'single');
+sum1 = zeros(N0, N1, nDfs, 'double'); sum2 = sum1;
+cc = zeros(N0, N1, nDfs);
+CTF = CTF(1:cp_im(1), :, :); fPSD = fPSD(1:cp_im(1), :); imref_F = imref_F(1:cp_im(1), :);
+norm_factor = prod(Npix_im);
+SD = zeros(nRotations, 1);
+cc_all = zeros(N0, N1, nDfs, nRotations);
+arbV = [];
+h0 = cp_im(1);
+for i = 1:nRotations
+  RM = R(:, :, i)';
+  xyz_r = (RM * xyz')' + cp;
+  temp_r = interpn(dummyX, dummyY, dummyZ, V_Fr, xyz_r(:, 2), xyz_r(:, 1), xyz_r(:, 3), 'linear', 0);
+  temp_i = interpn(dummyX, dummyY, dummyZ, V_Fi, xyz_r(:, 2), xyz_r(:, 1), xyz_r(:, 3), 'linear', 0);
+  projPot_F = reshape(complex(temp_r, temp_i), Npix, Npix);
+  template = real(ifftn(projPot_F(idx_small_i{:})));
+  template = template - median(template(:));
+  temp_image(rowColNums) = template(idx_small_f{:});
+  tf = fft2(temp_image); temp = tf(1:h0, :);                 % R2C (unscaled)
+  temp = temp ./ (2 .* sqrt(size(temp, 1) .* size(temp, 2)));
+  temp = temp .* fPSD;
+  for j = 1:nDfs
+    template_F = temp .* CTF(:, :, j);
+    v = sum(abs(template_F(:)).^2, 1, 'native');
+    SD(i) = sqrt(2 .* v ./ norm_factor);
+    template_F = template_F ./ SD(i);
+    cc_F = imref_F .* conj(template_F);
+    full = complex(zeros(N0, N1, 'single'));                 % C2R (unscaled)
+    full(1:h0, :) = cc_F;
+    for kk = h0 + 1:N0
+      full(kk, :) = conj(cc_F(N0 - kk + 2, mod(-(0:N1 - 1), N1) + 1));
+    end
+    cc(:, :, j) = real(ifft2(full)) .* (N0 * N1) ./ sqrt(norm_factor);
+  end
+  sum1 = sum1 + cc; sum2 = sum2 + cc.^2;
+  cc_all(:, :, :, i) = cc;
+  newLocs = find(cc > arbThr);
+  arbV = [arbV; double(cc(newLocs)) newLocs repmat(i, numel(newLocs), 1)];
+end
+ref.ml_sum1 = sum1; ref.ml_sum2 = sum2; ref.ml_SD = SD; ref.ml_cc = cc_all; ref.ml_arb = arbV;
+
+% ------------------------------------------------------------------ scattering potential
+% Same awk columns as read_cif_file.m ($19 dropped: this CIF has 18 columns and Octave's
+% textscan collapses the resulting empty field, unlike MATLAB).
+[~, resp] = system(['grep "^ATOM" ' cif_file ' | head -n 25 | awk ''{print $2, $3, $11, $12, $13, $15}''']);
+tok = strsplit(strtrim(resp));
+nA = 25;
+atomList = tok(2:6:end);
+xyz = [str2double(tok(3:6:end)); str2double(tok(4:6:end)); str2double(tok(5:6:end))];
+bFactor = str2double(tok(6:6:end));
+ref.sp_xyz = xyz; ref.sp_atoms = char(atomList);
+aPerPix = 1.032; bFactor = ones(1, length(bFactor)) .* 0;   % bArb = 0
+cc_ = smap.def_consts();
+xyz = xyz - repmat(nanmean(xyz, 2), 1, size(xyz, 2));
+xyz = xyz - repmat(nanmean(xyz, 2), 1, size(xyz, 2));
+mm = [min(xyz, [], 2) max(xyz, [], 2)];
+edgeSize = max([ceil(((2 .* max(abs(mm(:)))) + 5.0) ./ aPerPix) 211]);
+temp = single(smap.rrj(zeros(edgeSize, edgeSize, edgeSize)));
+D = temp .* (size(temp, 1) - 1); cpe = floor(size(D, 1) ./ 2) + 1;
+tempVec = D(cpe, :, cpe); tempVec(1:cpe) = -tempVec(1:cpe);
+[X0, Y0, Z0] = meshgrid(tempVec, tempVec, tempVec);
+X0 = X0 .* aPerPix; Y0 = Y0 .* aPerPix; Z0 = Z0 .* aPerPix;
+al = char; for i = 1:nA, t_ = char(atomList{i}); al(i) = t_(1); end
+Vp = zeros(size(X0));
+lead_term = ((16 .* pi.^(5/2) .* (cc_.h ./ (2 .* pi)).^2) ./ (cc_.m_e .* cc_.q_e)) .* 1e20;
+for ctr = 1:nA
+  Dd = sqrt((X0 - xyz(1, ctr)).^2 + (Y0 - xyz(2, ctr)).^2 + (Z0 - xyz(3, ctr)).^2);
+  inds = find(Dd <= 5);
+  [a, b_init] = smap.parameterizeSF(al(ctr));
+  b = b_init + bFactor(ctr) + 16 .* (aPerPix.^2);
+  st_ = zeros(size(inds, 1), 5);
+  for i = 1:5
+    st_(:, i) = (a(i) ./ (b(i).^(3 ./ 2))) .* exp(-((4 .* pi.^2) .* (Dd(inds).^2)) ./ b(i));
+  end
+  Vp(inds) = Vp(inds) + lead_term .* sum(st_, 2);
+end
+ref.sp_V = single(Vp);
+clear X0 Y0 Z0 Dd D temp
+% post-processing (edge_max = 256 to keep the test small; catch-branch behaviour)
+EPV = double(single(Vp + 4.871));
+edgeS = 2.5 * size(EPV, 1); if edgeS > 256, edgeS = 256; end
+edgeS = max([edgeS max(size(EPV))]);
+SPV_out = single(smap.cropOrPad(EPV, [edgeS, edgeS, edgeS], 4.871));
+dx = aPerPix ./ 1e10;
+lambda = cc_.h / sqrt(cc_.q_e * 300000 * cc_.m_e * (cc_.q_e / cc_.m_e * 300000 / cc_.c_v^2 + 2));
+k = 2 .* pi ./ lambda;
+inref = SPV_out .* cc_.IC .* dx ./ (2 .* k);
+bg_val = mode(inref(:)); inref = inref - bg_val;
+edge_size = size(inref, 1); cpz = floor(edge_size ./ 2) + 1;
+dummy = [-(cpz - 1):(cpz - (2 - mod(edge_size, 2)))];
+[X, Y, Z] = meshgrid(dummy, dummy, dummy);
+M = sum(inref(:));
+COM = [dot(X(:), inref(:)) / M, dot(Y(:), inref(:)) / M, dot(Z(:), inref(:)) / M];
+outref = smap.applyPhaseShifts(inref, -[COM(2) COM(1) COM(3)]);
+ref.sp_SP = single(real(outref + bg_val));
+ref.sp_edge = edgeS;
+
+save('-v7', fullfile(out_dir, 'refs.mat'), 'ref');
+disp('reference written');
