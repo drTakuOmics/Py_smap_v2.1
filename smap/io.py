@@ -28,7 +28,13 @@ SEARCH_GLOBAL_DEFAULTS = dict(
     modelName=None, edge_max=512, defocus_format="CTFFind", angle_inc=None,
     psi_inc=None, structureFile=None, mask_params=[0, 3], keep_scratch_flag=0,
     margin_pix=0,
+    # ---- Python-port options (ignored by MATLAB v2.1; defaults reproduce v2.1) ----
+    oversample=1, dedupe_orientations=0, template_bfactor=0, fix_even_grid=0,
+    fix_pdb_short_lines=0, legacy_particle_diameter=1, fix_cluster_thresholds=0,
+    fix_optimize_angle=0, refine_local_peak=0,
 )
+PATH_FIELDS = ("outputDir", "imageFile", "modelFile", "maskFile", "rotationsFile",
+               "PDBFile", "structureFile")
 _SEARCH_GLOBAL_STRING_FIELDS = {
     "outputDir", "imageFile", "modelFile", "maskFile", "rotationsFile", "listFormat",
     "PDBFile", "chains", "modelName", "defocus_format", "structureFile",
@@ -169,3 +175,17 @@ def read_single(fn: str | Path) -> np.ndarray:
 
 def read_double(fn: str | Path) -> np.ndarray:
     return np.fromfile(fn, dtype="<f8")
+
+
+# --------------------------------------------------------------------------- layout adapters
+
+def smap_to_zyx(vol: np.ndarray) -> np.ndarray:
+    """SMAP/MATLAB layout [row=y, col=x, page=z] -> mrcfile/NumPy-native [z, y, x]."""
+    v = np.asarray(vol)
+    return v if v.ndim == 2 else np.transpose(v, (2, 0, 1))
+
+
+def zyx_to_smap(vol: np.ndarray) -> np.ndarray:
+    """mrcfile/NumPy-native [z, y, x] -> SMAP/MATLAB layout [row=y, col=x, page=z]."""
+    v = np.asarray(vol)
+    return v if v.ndim == 2 else np.transpose(v, (1, 2, 0))

@@ -378,3 +378,91 @@ def apply_phase_shifts_3d_real(inref: np.ndarray, shifts) -> np.ndarray:
         F *= np.exp(1j * 2 * np.pi * g(zs) * (-s_sub[2])).astype(ct)[None, None, :]
         v = iftj(F)
     return v
+
+
+# --------------------------------------------------------------------------- refinement helpers
+
+def matlab_round(x):
+    """MATLAB round: halves away from zero (numpy rounds half to even)."""
+    x = np.asarray(x, dtype=np.float64)
+    return np.sign(x) * np.floor(np.abs(x) + 0.5)
+
+
+def apply_phase_shifts_2d(inref: np.ndarray, shifts) -> np.ndarray:
+    """@smap/applyPhaseShifts.m, single 2-D frame. shifts=[s1 s2]: rows move by s2,
+    columns by s1 (MATLAB passes fliplr([row col]) at the call sites).
+    Real input: integer circshift + Fourier sub-pixel; complex input is treated as a
+    centred spectrum and returned as the shifted real image (iftj)."""
+    s = np.asarray(shifts, dtype=np.float64).ravel()
+    xs, ys = inref.shape
+    gx = (np.arange(xs) - xs / 2) / xs
+    gy = (np.arange(ys) - ys / 2) / ys
+    if np.iscomplexobj(inref):
+        dphs = gx[:, None] * (-s[1]) + gy[None, :] * (-s[0])
+        return iftj(inref * np.exp(1j * 2 * np.pi * dphs))
+    s_int = np.trunc(s).astype(int)
+    s_sub = s - np.trunc(s)
+    m = np.roll(inref, shift=(s_int[1], s_int[0]), axis=(0, 1))
+    if np.max(np.abs(s_sub)) > 0:
+        dphs = gx[:, None] * (-s_sub[1]) + gy[None, :] * (-s_sub[0])
+        F = ftj(m)
+        return iftj(F * np.exp(1j * 2 * np.pi * dphs).astype(F.dtype))
+    return m
+
+
+def crop_patch(inref: np.ndarray, new_dims, target) -> np.ndarray:
+    """@smap/cropOrPad.m with targetXY: window of size new_dims centred on the
+    1-based pixel ``target`` (mean-padded via extendj when it spills over the edge)."""
+    a = np.asarray(inref)
+    old = np.array(a.shape)
+    new = np.array(list(new_dims)[:2], dtype=int)
+    t = np.asarray(target, dtype=np.float64)
+    cp = old // 2 + 1
+    margin = new // 2 + 1
+    xy = np.abs(t - cp)
+    q = cp - margin
+    if xy[0] > q[0] or xy[1] > q[1]:
+        spill = max(xy[0] - q[0], xy[1] - q[1])
+        padded = np.ceil(old + 2 * spill).astype(int)
+        a = crop_or_pad(a, padded, float(np.mean(a)))       # extendj
+    sh = cp - t                                              # fliplr(cp-target) then circshift
+    s = np.array([sh[1], sh[0]])
+    a = apply_phase_shifts_2d(a, s)
+    return crop_or_pad(a, new)
+
+
+def _imresize_weights(in_len: int, out_len: int, antialias: bool = True):
+    """Contribution weights of MATLAB imresize, 'bilinear' (triangle) kernel."""
+    scale = out_len / in_len
+    width = 2.0
+    if scale < 1 and antialias:
+        h = lambda x: scale * np.clip(1 - np.abs(scale * x), 0, None)  # noqa: E731
+        width = width / scale
+    else:
+        h = lambda x: np.clip(1 - np.abs(x), 0, None)  # noqa: E731
+    x = np.arange(1, out_len + 1, dtype=np.float64)
+    u = x / scale + 0.5 * (1 - 1 / scale)
+    left = np.floor(u - width / 2)
+    P = int(math.ceil(width)) + 2
+    ind = left[:, None] + np.arange(P)[None, :]
+    w = h(u[:, None] - ind)
+    w = w / w.sum(axis=1, keepdims=True)
+    aux = np.concatenate([np.arange(1, in_len + 1), np.arange(in_len, 0, -1)])
+    ind = aux[np.mod(ind.astype(int) - 1, aux.size)]
+    keep = np.any(w != 0, axis=0)
+    W = np.zeros((out_len, in_len))
+    for j in np.nonzero(keep)[0]:
+        np.add.at(W, (np.arange(out_len), ind[:, j] - 1), w[:, j])
+    return W
+
+
+def imresize_bilinear(im: np.ndarray, out_shape) -> np.ndarray:
+    """MATLAB ``imresize(im, out_shape, 'bilinear')`` (antialiasing on when shrinking).
+
+    Implements MATLAB's documented contributions() algorithm (symmetric boundary).
+    Not cross-checked against MATLAB itself (Octave's imresize differs).
+    """
+    a = np.asarray(im, dtype=np.float64)
+    Wr = _imresize_weights(a.shape[0], int(out_shape[0]))
+    Wc = _imresize_weights(a.shape[1], int(out_shape[1]))
+    return Wr @ a @ Wc.T

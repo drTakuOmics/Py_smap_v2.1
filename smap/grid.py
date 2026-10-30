@@ -9,7 +9,8 @@ import numpy as np
 from .utils import matlab_colon, normalize_rm
 
 
-def calculate_search_grid(symmetry: str, angular_step: float, psi_step: float):
+def calculate_search_grid(symmetry: str, angular_step: float, psi_step: float,
+                          dedupe: bool = False):
     """Port of calculate_search_grid.m -> (R (n,3,3), euler angles (3, n_unmirrored) deg).
 
     For C symmetry the C2x-mirrored set is appended (test_mirror), as in MATLAB.
@@ -57,8 +58,33 @@ def calculate_search_grid(symmetry: str, angular_step: float, psi_step: float):
         R_flip = np.array([[1.0, 0, 0], [0, -1.0, 0], [0, 0, -1.0]])
         RM = normalize_rm(RM)
         RM_mirror = normalize_rm(RM @ R_flip)
-        return np.concatenate([RM, RM_mirror], axis=0), ea
-    return normalize_rm(RM), ea
+        out = np.concatenate([RM, RM_mirror], axis=0)
+    else:
+        out = normalize_rm(RM)
+    if dedupe:
+        out = unique_rotations(out)
+    return out, ea
+
+
+def unique_rotations(R: np.ndarray, tol: float = 1e-7) -> np.ndarray:
+    """OPTION ``dedupe_orientations``: drop repeats (quaternion distance < tol), keeping
+    the first occurrence in grid order.
+
+    v2.1 grids contain repeats (e.g. phi=0 and phi=phi_max at every theta). Repeats waste
+    search time and make the rotation index of a peak ambiguous.
+    """
+    from scipy.spatial import cKDTree
+    from .rot import rotm_to_quat_robust
+    q = rotm_to_quat_robust(R)
+    n = q.shape[0]
+    pts = np.concatenate([q, -q])                       # q and -q are the same rotation
+    pairs = cKDTree(pts).query_pairs(tol, output_type="ndarray")
+    drop = np.zeros(n, bool)
+    for i, j in pairs:
+        a, b = i % n, j % n
+        if a != b:
+            drop[max(a, b)] = True
+    return R[~drop]
 
 
 def q2r(q) -> np.ndarray:

@@ -1,3 +1,22 @@
+# Py_smap_v2.1 — Python/PyTorch port of SMAP v2.1
+
+The `smap/` package is a one-to-one Python/PyTorch translation of SMAP v2.1's
+`smappoi_search_global` (search, clustering, refinement and optimisation), checked against the
+original MATLAB code run in Octave. Original SMAP: J. Peter Rickgauer, HHMI Janelia
+(https://github.com/jpr-smap/smap_v2.1, MIT License) — please cite the SMAP papers listed below.
+
+```bash
+pip install -e ".[test]"
+python -m smap.search_global search.par --batch-size 8
+pytest tests_port
+```
+
+Status, options (all off by default, so results follow v2.1), tests and the v2.1 behaviours found
+during the port are in [PORT_NOTES.md](PORT_NOTES.md). `src/smap_tools_python/` holds an older,
+simplified prototype that does not run the full search.
+
+---
+
 # smap_v2.1
 smap_v2.1 installation and usage notes
 

@@ -19,6 +19,7 @@ only, not the per-orientation arithmetic.
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import time
 from dataclasses import dataclass, field
@@ -28,12 +29,13 @@ import numpy as np
 import scipy.fft as sfft
 from scipy.special import erfc, erfcinv
 
+from . import __version__
 from . import io as sio
-from .ctf import ctf
+from .ctf import ctf, template_envelope
 from .grid import calculate_search_grid
 from .structure import calculate_sp
 from .utils import (assign_jobs, crop_or_pad, mask_a_volume, mask_central_cross,
-                    matlab_colon, nm, normalize_rm, psd_filter, resize_f,
+                    matlab_colon, matlab_mode, nm, normalize_rm, psd_filter, resize_f,
                     resize_for_fft, zp_int)
 
 
@@ -57,6 +59,8 @@ class SearchSetup:
     high_thr: float
     n_samples: float
     log_lines: list = field(default_factory=list)
+    fPSD_full: np.ndarray | None = None  # full (corner-origin) whitening filter, float32
+    oversample: int = 1                  # OPTION: Fourier oversampling of the potential
 
     @property
     def n_dfs(self) -> int:
@@ -69,11 +73,28 @@ def _log(setup_or_list, msg: str):
         setup_or_list.append(msg)
 
 
-def prepare(params_file: str | Path, device=None, write_files: bool = True) -> SearchSetup:
+def apply_path_map(params: dict, path_map) -> dict:
+    """Rewrite path prefixes in string parameters, e.g. Docker '/work' -> a local folder,
+    so an existing v2.1 ``search.par`` can be run unchanged by the port."""
+    for old, new in (path_map or []):
+        for k in sio.PATH_FIELDS:
+            v = params.get(k)
+            if isinstance(v, str) and v.startswith(old):
+                params[k] = new + v[len(old):]
+    return params
+
+
+def prepare(params_file: str | Path, device=None, write_files: bool = True,
+            path_map=None, output_dir=None) -> SearchSetup:
     """Everything before the main loop (MATLAB lines 51-485), shared by all jobs."""
     params, fn_type = sio.read_params_file(params_file)
     if fn_type != "search_global":
         raise ValueError(f"Expected function 'search_global', got '{fn_type}'")
+    params = apply_path_map(params, path_map)
+    if output_dir:  # write somewhere else than the .par says (keeps v2.1 outputs intact)
+        params["outputDir"] = str(output_dir)
+    params["_params_file"] = str(Path(params_file).resolve())
+    params["_params_text"] = Path(params_file).read_text(errors="replace")
     log: list = []
 
     # backwards compatibility (structureFile <- PDBFile/modelFile)
@@ -104,7 +125,8 @@ def prepare(params_file: str | Path, device=None, write_files: bool = True) -> S
             params["psi_inc"] = params["angle_inc"]
         _log(log, f"calculating search grid for angle_inc={params['angle_inc']:6.3f}, "
                   f"psi_inc={params['psi_inc']:6.3f}...")
-        R, _ = calculate_search_grid("C1", params["angle_inc"], params["psi_inc"])
+        R, _ = calculate_search_grid("C1", params["angle_inc"], params["psi_inc"],
+                                     dedupe=bool(params.get("dedupe_orientations", 0)))
         params["range_degrees"] = (params["angle_inc"] + params["psi_inc"]) / 2
         if write_files:
             sio.write_rotations_file(R, out_dir / "rotations.txt")
@@ -131,6 +153,8 @@ def prepare(params_file: str | Path, device=None, write_files: bool = True) -> S
 
     # ---- image (MATLAB lines 186-270)
     im = sio.mr(params["imageFile"]).astype(np.float64)
+    params["aPerPix_orig"] = a_orig
+    params["image_shape_orig"] = im.shape
     if a_orig != params["aPerPix_search"]:
         im = resize_f(im, a_orig / params["aPerPix_search"], "newSize")
         params["aPerPix"] = params["aPerPix_search"]
@@ -175,6 +199,11 @@ def prepare(params_file: str | Path, device=None, write_files: bool = True) -> S
         SPV = mask_a_volume(SPV.astype(np.float32), params["mask_params"])
     SPV = np.asarray(SPV, dtype=np.float32)
     Npix = int(min(SPV.shape))
+    K = int(params.get("oversample", 1) or 1)
+    if K > 1:  # OPTION: zero-pad the (background-subtracted) potential K-fold before the FFT
+        bg = matlab_mode(SPV)
+        SPV = crop_or_pad(SPV - bg, [K * Npix] * 3, 0).astype(np.float32)
+        _log(log, f"oversampling potential {K}x -> {SPV.shape[0]}^3")
     F_abs = params.get("F_abs") or 0
     V = (SPV + 1j * F_abs * SPV).astype(np.complex64)
     V_F = np.fft.fftshift(sfft.fftn(np.fft.ifftshift(V))).astype(np.complex128)
@@ -183,6 +212,7 @@ def prepare(params_file: str | Path, device=None, write_files: bool = True) -> S
 
     # ---- CTF (MATLAB lines 359-367): uses current params (aPerPix_search)
     C = ctf(df, [N0, N1], params)
+    C = C * template_envelope(N0, params)[:, :, None]   # OPTION (1 when template_bfactor=0)
     C = np.stack([np.fft.ifftshift(C[:, :, i]) for i in range(C.shape[2])], axis=2)
     CTF_half = np.imag(C)[:h0, :, :]
 
@@ -200,6 +230,7 @@ def prepare(params_file: str | Path, device=None, write_files: bool = True) -> S
         imref_F_half=np.ascontiguousarray(imref_F[:h0, :].astype(np.complex64)),
         fPSD_half=np.ascontiguousarray(fPSD[:h0, :]), CTF_half=CTF_half, V_F=V_F,
         Npix=Npix, defocus=df, high_thr=high_thr, n_samples=n_samples, log_lines=log,
+        fPSD_full=np.asarray(fPSD, dtype=np.float32), oversample=K,
     )
 
 
@@ -272,7 +303,10 @@ def make_templates(st: "SearchSetup", rot_indices, device="cpu") -> np.ndarray:
     ar = torch.arange(1, N + 1, device=dev, dtype=torch.float64)
     rr, cc_ = torch.meshgrid(ar, ar, indexing="ij")
     R = normalize_rm(st.R_full[np.asarray(rot_indices) - 1])
-    return _templates(Vr, Vi, torch.as_tensor(R, device=dev), cc_ - cp, rr - cp, cp).cpu().numpy()
+    K = st.oversample
+    cpV = st.V_F.shape[0] // 2 + 1
+    return _templates(Vr, Vi, torch.as_tensor(R, device=dev), (cc_ - cp) * K, (rr - cp) * K,
+                      cpV).cpu().numpy()
 
 
 def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
@@ -306,12 +340,15 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
     nD = st.n_dfs
     cp = N // 2 + 1
 
-    Vr = torch.as_tensor(np.ascontiguousarray(st.V_F.real), device=dev)
-    Vi = torch.as_tensor(np.ascontiguousarray(st.V_F.imag), device=dev)
+    K = st.oversample
+    vdt = np.float64 if K == 1 else np.float32   # oversampled volumes kept in single precision
+    Vr = torch.as_tensor(np.ascontiguousarray(st.V_F.real.astype(vdt)), device=dev).double()
+    Vi = torch.as_tensor(np.ascontiguousarray(st.V_F.imag.astype(vdt)), device=dev).double()
     rr, cc_ = torch.meshgrid(torch.arange(1, N + 1, device=dev, dtype=torch.float64),
                              torch.arange(1, N + 1, device=dev, dtype=torch.float64), indexing="ij")
-    gx = cc_ - cp   # x varies along columns
-    gy = rr - cp    # y varies along rows
+    gx = (cc_ - cp) * K   # x varies along columns (scaled to the oversampled grid)
+    gy = (rr - cp) * K    # y varies along rows
+    cpV = st.V_F.shape[0] // 2 + 1
 
     imF = torch.as_tensor(st.imref_F_half, device=dev)                 # (h0,N1) c64
     fPSD = torch.as_tensor(st.fPSD_half, device=dev)                   # (h0,N1) f32
@@ -333,7 +370,7 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
     R_t = torch.as_tensor(R, device=dev)
     for b0 in range(0, n_rot, batch_size):
         b1 = min(n_rot, b0 + batch_size)
-        templ = _templates(Vr, Vi, R_t[b0:b1], gx, gy, cp)            # (B,N,N) f64, centred
+        templ = _templates(Vr, Vi, R_t[b0:b1], gx, gy, cpV)           # (B,N,N) f64, centred
         B = b1 - b0
         timg = torch.zeros((B, N0, N1), dtype=torch.float32, device=dev)
         timg[:, off0:off0 + N, off1:off1 + N] = templ.to(torch.float32)
@@ -378,6 +415,9 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
         sio.mw(s2, st.scratch_dir / f"search_{tag}_ssum.mrc", st.params["aPerPix"])
         sio.write_single(st.scratch_dir / f"search_{tag}_SD.dat", SD_last)
         sio.write_double(st.scratch_dir / f"search_{tag}_arb.dat", arb)
+        (st.scratch_dir / f"search_{tag}_status.json").write_text(json.dumps(
+            dict(job=jobref, evaluated_orientations=int(n_rot),
+                 assigned_orientations=int(assign_jobs(st.R_full.shape[0], n_cores, jobref).size))))
     return dict(sum1=s1, sum2=s2, SD=SD_last, SD_all=SD_all, arb=arb,
                 elapsed=time.time() - t0, n_rot=n_rot)
 
@@ -391,6 +431,15 @@ def _hist_centers(x: np.ndarray, centers: np.ndarray) -> np.ndarray:
     return np.bincount(k, minlength=centers.size).astype(np.float64)
 
 
+def keep_region(st: SearchSetup, margin) -> np.ndarray:
+    """Pixels kept by combine's edge/margin rule, (N0, N1) bool."""
+    N0, N1 = st.Npix_im
+    cp_im = np.array([N0 // 2 + 1, N1 // 2 + 1])
+    r = np.abs(np.arange(1, N0 + 1) - cp_im[0])[:, None]
+    c = np.abs(np.arange(1, N1 + 1) - cp_im[1])[None, :]
+    return ~((r > cp_im[0] - margin[0]) | (c > cp_im[1] - margin[1]))
+
+
 def combine(st: SearchSetup, n_jobs: int | None = None):
     """MATLAB lines 628-863: merge job outputs, normalise, write SH and highVals."""
     p = st.params
@@ -400,6 +449,16 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
     n_rot_full = st.R_full.shape[0]
     out = st.out_dir
 
+    n_eval = 0
+    for j in range(1, n_jobs + 1):
+        f = st.scratch_dir / f"search_{zp_int(j)}_status.json"
+        n_eval += json.loads(f.read_text())["evaluated_orientations"] if f.exists() else 0
+    complete = n_eval == n_rot_full
+    if not complete:
+        print(f"WARNING: incomplete search ({n_eval} of {n_rot_full} orientations evaluated); "
+              "moments and trial counts use the evaluated number; not a v2.1-equivalent run")
+        n_rot_full = n_eval
+    n_samples = n_rot_full * float(np.prod(st.dims_imref)) * nD
     sum_g = np.zeros((N0, N1, nD))
     ssum_g = np.zeros((N0, N1, nD))
     SDl, av_list = [], []
@@ -455,7 +514,7 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
         xs = np.linspace(av_norm.min(), av_norm.max(), 10000)
         nt = _hist_centers(av_norm, xs)
         y_meas = nt.sum() - np.cumsum(nt)
-        y_model = erfc(xs / math.sqrt(2)) / 2 * st.n_samples
+        y_model = erfc(xs / math.sqrt(2)) / 2 * n_samples
         with open(out / "search_SH.txt", "w") as fh:
             for a_, b_, c_ in zip(xs, y_model, y_meas):
                 fh.write("%8.4f\t%12.3f\t%12i\n" % (a_, b_, int(round(c_))))
@@ -471,7 +530,19 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
     sio.mw(mean_im, out / "search_mean.mrc", p["aPerPix"])
     sio.mw(sd_im, out / "search_SD.mrc", p["aPerPix"])
     sio.write_single(out / "search_SDs.dat", np.concatenate(SDl) if SDl else [])
-    return dict(av_norm=av_norm, ai=ai, locs=locs, thr=thr, ff=ff, ff_inds=ff_inds,
+    from .provenance import provenance
+    from .stats import calibrate_threshold
+    cal = calibrate_threshold(ff, mean_im, sd_im, float(p["arbThr"]), keep_region(st, margin),
+                              n_samples)
+    status = dict(is_complete=complete, evaluated_pose_count=int(n_rot_full),
+                  trial_count=n_samples, raw_preselection_threshold=float(p["arbThr"]),
+                  threshold_operator=">", score_kind="pixelwise-normalised CC (flat-fielded)",
+                  score_stage="global search (pre-refinement)", coordinate_frame=
+                  "search grid, 1-based [row, col], padded image", sampling_A=float(p["aPerPix"]),
+                  gaussian_threshold=thr, calibration=cal, smap_port_version=__version__,
+                  provenance=provenance(p))
+    (out / "search_status.json").write_text(json.dumps(status, indent=1))
+    return dict(is_complete=complete, av_norm=av_norm, ai=ai, locs=locs, thr=thr, ff=ff, ff_inds=ff_inds,
                 mean=mean_im, sd=sd_im)
 
 
@@ -487,9 +558,52 @@ def main(argv=None) -> int:
                     help="orientations per GPU pass (1 = MATLAB order, larger = faster)")
     ap.add_argument("--max-rotations", type=int, default=None,
                     help="debug: limit orientations per job")
+    ap.add_argument("--no-refine", action="store_true",
+                    help="stop after combine (skip clustering/refinement/optimisation)")
+    ap.add_argument("--path-map", action="append", default=[], metavar="OLD=NEW",
+                    help="rewrite path prefixes in the .par file, e.g. /work=D:/rnf213 (repeatable)")
+    ap.add_argument("--output-dir", default=None,
+                    help="override outputDir from the .par (e.g. to keep an existing v2.1 output)")
+    ap.add_argument("--allow-incomplete", action="store_true",
+                    help="refine even when not all orientations were evaluated (debug only)")
+    ap.add_argument("--log", default=None,
+                    help="also write all output to this UTF-8 file (e.g. run.log; avoids "
+                         "PowerShell '>' writing UTF-16, which the RNF213 scripts cannot read)")
     a = ap.parse_args(argv)
+    if a.log:
+        import sys
+        fh = open(a.log, "a", encoding="utf-8")
 
-    st = prepare(a.params, device=a.device)
+        class _Tee:
+            def __init__(self, *s): self.s = s
+            def write(self, x):
+                for t in self.s:
+                    t.write(x)
+                    t.flush()
+            def flush(self):
+                for t in self.s:
+                    t.flush()
+        old = sys.stdout
+        sys.stdout = _Tee(old, fh)
+        try:
+            return _main(a, ap)
+        finally:
+            sys.stdout = old
+            fh.close()
+    return _main(a, ap)
+
+
+def _main(a, ap) -> int:
+    pm = []
+    for item in a.path_map:
+        if "=" not in item:
+            ap.error(f"--path-map expects OLD=NEW, got {item!r}")
+        old, new = item.split("=", 1)
+        pm.append((old, new))
+
+    st = prepare(a.params, device=a.device, path_map=pm, output_dir=a.output_dir)
+    st.params["_run_settings"] = dict(device=a.device or "auto", batch_size=a.batch_size,
+                                      max_rotations=a.max_rotations, path_map=a.path_map)
     n_cores = int(st.params["nCores"])
     jobs = [a.jobref] if a.jobref else list(range(1, n_cores + 1))
     for j in jobs:
@@ -500,8 +614,19 @@ def main(argv=None) -> int:
         if missing:
             print(f"waiting for jobs {missing}; run combine after they finish")
         else:
-            combine(st)
-            print("clustering/optimisation (MATLAB lines 864+) not ported yet")
+            res = combine(st)
+            if not res["is_complete"] and not a.allow_incomplete:
+                print("INCOMPLETE search (debug run): refinement skipped and the run is not marked "
+                      "done; use --allow-incomplete to override")
+                return 2
+            if not a.no_refine:
+                from .refine import optimize_particles, refine_particles, select_particles, write_final
+                jobs = select_particles(st, res)
+                parts = refine_particles(st, jobs, res["mean"], res["sd"], device=a.device)
+                opt = optimize_particles(st, parts, device=a.device) if parts else []
+                write_final(st, opt)
+            # log lines that the RNF213 workflow scripts look for in run.log
+            print(f"Done combining search output at {time.strftime('%Y-%m-%d %H:%M:%S')}")
     return 0
 
 

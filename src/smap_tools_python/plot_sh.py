@@ -29,8 +29,8 @@ def plot_sh(peak_vals, color="b", Nsamples=None, nfp=1, ax=None):
     Returns
     -------
     tuple
-        ``(xs, ys, YS, thr)`` where ``xs`` are bin centers, ``ys`` the empirical
-        survival counts, ``YS`` the Gaussian expectation, and ``thr`` the
+        ``(xs, ys, YS, thr)`` where ``xs`` are thresholds, ``ys`` the exact
+        strict survival counts ``count(peak_vals > xs)``, ``YS`` the Gaussian expectation, and ``thr`` the
         detection threshold for ``nfp`` expected false positives.
     """
 
@@ -39,10 +39,13 @@ def plot_sh(peak_vals, color="b", Nsamples=None, nfp=1, ax=None):
         raise ValueError("peak_vals must contain at least one value")
     if Nsamples is None:
         Nsamples = v.size
-    xs = np.linspace(v.min(), v.max(), 10_000)
-    hist, edges = np.histogram(v, bins=xs)
-    ys = Nsamples - np.cumsum(hist)
+    edges = np.linspace(v.min(), v.max(), 10_000)
     xs = edges[:-1]
+    # Exact strict survival of the supplied scores, count(v > x). (Previously
+    # Nsamples - cumsum(hist): wrong whenever Nsamples != len(peak_vals).)
+    # Nsamples is used only for the Gaussian null reference curve and threshold.
+    s = np.sort(v)
+    ys = s.size - np.searchsorted(s, xs, side="right")
     YS = erfc(xs / np.sqrt(2)) / 2 * Nsamples
     thr = np.sqrt(2) * erfcinv(nfp * 2 / Nsamples)
     if ax is not None:
@@ -50,6 +53,5 @@ def plot_sh(peak_vals, color="b", Nsamples=None, nfp=1, ax=None):
         ax.semilogy(xs, YS, "k--")
         ax.set_xlim(xs[0], xs[-1])
         ax.set_ylim(0.9, max(YS) * 2)
-        ax.axis("square")
         ax.grid(True)
     return xs, ys, YS, thr

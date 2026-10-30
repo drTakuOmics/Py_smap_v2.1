@@ -74,3 +74,13 @@ def ctf(defocus, edge_size, params: dict) -> np.ndarray:
         t2 = -((np.pi * Cs * lam**2 * freq**3 - np.pi * df_ast * freq) ** 2) * a_i**2 / math.log(2)
         out[:, :, i] = c * np.exp(t1) * np.exp(t2)
     return out
+
+
+def template_envelope(n: int, params: dict) -> np.ndarray:
+    """OPTION ``template_bfactor B`` (A^2): exp(-B k^2 / 4) amplitude envelope on the
+    template, centred (N, N). Returns ones when B is 0/absent (v2.1 behaviour)."""
+    B = float(params.get("template_bfactor", 0) or 0)
+    if B == 0:
+        return np.ones((n, n))
+    k, _ = get_ks(n, params["aPerPix"])
+    return np.exp(-B * k**2 / 4)

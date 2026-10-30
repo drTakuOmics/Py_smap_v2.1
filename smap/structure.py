@@ -32,14 +32,15 @@ class Atoms:
     chain_ids: list
 
 
-def read_pdb_file(fn: str | Path) -> Atoms:
-    """@smap/read_pdb_file.m. QUIRK: lines shorter than 78 chars are skipped."""
+def read_pdb_file(fn: str | Path, keep_short_lines: bool = False) -> Atoms:
+    """@smap/read_pdb_file.m. QUIRK: lines shorter than 78 chars are skipped
+    (``keep_short_lines`` / .par ``fix_pdb_short_lines 1`` pads them instead)."""
     xs, ys, zs, names, bf, chains = [], [], [], [], [], []
     text = Path(fn).read_text(errors="replace")
     for raw in text.split("\n"):
-        line = raw
+        line = raw.rstrip("\r")
         if len(line) < 78:
-            line = " " * 78
+            line = line.ljust(78) if keep_short_lines else " " * 78
         head = line[0:4]
         if "ATOM" in head or "TER" in head or "HETA" in head:
             try:
@@ -96,7 +97,7 @@ def parameterize_sf(elem: str):
 
 
 def electrostatic_potential(atoms: Atoms, a_per_pix: float, b_arb=0.0, device=None,
-                            batch: int = 4096) -> np.ndarray:
+                            batch: int = 4096, exact_spacing: bool = False) -> np.ndarray:
     """Per-atom potential sum on the SMAP grid (no +wPot). Returns float64 (N,N,N)
     in MATLAB [row=y, col=x, page=z] layout."""
     import torch
@@ -113,7 +114,7 @@ def electrostatic_potential(atoms: Atoms, a_per_pix: float, b_arb=0.0, device=No
     cp = edge // 2 + 1
     # tempVec from rrj(zeros(edge^3))*(edge-1): spacing (edge-1)/(2(cp-1)) pixels
     # QUIRK: for even edge this is (edge-1)/edge, not 1.
-    scale = (edge - 1) / (2.0 * (cp - 1))
+    scale = 1.0 if exact_spacing else (edge - 1) / (2.0 * (cp - 1))  # OPTION fix_even_grid
     step = scale * a_per_pix  # Angstrom per voxel along each axis
 
     cc = def_consts()
@@ -165,7 +166,7 @@ def calculate_sp(params: dict, out_dir: str | Path | None = None, device=None, l
     fn = Path(params["structureFile"])
     ext = fn.suffix
     if ext in (".pdb", ".PDB", ".pdb1"):
-        atoms = read_pdb_file(fn)
+        atoms = read_pdb_file(fn, keep_short_lines=bool(params.get("fix_pdb_short_lines", 0)))
     elif ext == ".cif":
         ch = params.get("chains")
         atoms = read_cif_file(fn, ch.split(" ") if ch else None)
@@ -174,7 +175,8 @@ def calculate_sp(params: dict, out_dir: str | Path | None = None, device=None, l
     a_per_pix = float(params["aPerPix"])
     log(f"calculating potential for {atoms.xyz.shape[1]} atoms...")
     b_arb = params.get("bArb", 0)
-    EPV = electrostatic_potential(atoms, a_per_pix, b_arb=b_arb, device=device)
+    EPV = electrostatic_potential(atoms, a_per_pix, b_arb=b_arb, device=device,
+                                  exact_spacing=bool(params.get("fix_even_grid", 0)))
     EPV = EPV + W_POT
 
     out_dir = Path(out_dir or params["outputDir"])

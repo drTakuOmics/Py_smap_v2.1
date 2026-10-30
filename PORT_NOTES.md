@@ -1,66 +1,141 @@
 # `smap/` — Python/PyTorch port of SMAP v2.1 `smappoi_search_global`
 
-Source of truth: `smap_v2.1/src/smap_tools/smappoi_search_global.m` and `@smap/*.m`
-(J. P. Rickgauer, MIT License). Translated one-to-one from the MATLAB; no algorithmic changes.
+Source of truth: `smap_v2.1/src/smap_tools/smappoi_search_global.m`, `@smap/*.m` and
+`quaternion.m` (J. P. Rickgauer, MIT License). Translated one-to-one from the MATLAB.
+`src/smap_tools_python/smappoi_search_global.py` is an older simplified prototype and is
+**not** this port; the supported entry point is `python -m smap.search_global`
+(`smap-search-global` after `pip install -e .`).
 
 ## Status
 
 | MATLAB lines | Step | Python | Status |
 |---|---|---|---|
-| 51–354, 1992–2381 | params, rotations, defocus stack, image whitening, PDB/CIF → scattering potential | `search_global.prepare`, `structure.py` | ported, tested |
-| 355–485 | CTF stack, Fourier volume, thresholds | `prepare`, `ctf.py` | ported, tested |
-| 486–627 | main loop: template → FFT → ×CTF → SD-normalise → CC; moments; above-threshold list | `search_global.run_job` | ported, tested |
-| 628–863 | combine jobs, pixelwise normalisation, `search_SH.txt`, `highVals.txt` | `search_global.combine` | ported, tested |
-| 864–1990 | `clusterImByThr`, `pairwiseQD`, particle refinement/optimisation | — | **not ported yet** |
+| 51–354, 1992–2381 | params, rotations, defocus stack, whitening, PDB/CIF → scattering potential | `search_global.prepare`, `structure.py` | ported, Octave parity |
+| 355–627 | CTF stack, Fourier volume, thresholds, main CC loop | `prepare`, `run_job` | ported, Octave parity |
+| 628–863 | combine jobs, flat-field normalisation, `search_SH.txt`, `highVals.txt` | `combine` | ported |
+| 864–968 | `clusterImByThr` per defocus plane, duplicate suppression, `opt_toDo` files | `refine.select_particles` | ported, Octave parity (clustering) |
+| 983–1353 | per-particle grid refinement: defocus, angular bump set, defocus, full-image peak → `opt_done` | `refine.refine_particles` | ported, Octave parity (scoring) |
+| 1418–1562, 1811–1990 | `optimize_xcorr` (exit-wave template, Nelder–Mead shift/angle) at original pixel size | `refine.optimize_particles` | ported, Octave parity (template, objective) |
+| 1566–1704 | `list_final.txt`, `particles.{mrc,par,txt}`, `templates.mrc` | `refine.write_final` | ported; `particles.mat` replaced by `particles.csv` |
 
-Array convention: Python axis k = MATLAB dimension k+1 (images `[row, col]`, volumes `[row, col, page]`),
-rotations stored `(n, 3, 3)` with `R[i-1] == R(:,:,i)`. Output files use v2.1 names and formats.
+Output files keep v2.1 names and formats, and parse with the RNF213 review readers
+(`matrix(...)`, `particles.par` with one header row, stacks indexed `j@particles.mrc`).
+`run.log` contains the lines the workflow scripts look for ("starting optimization on",
+"nothing to optimize", "Done combining search output").
+
+New outputs: `search_status.json` (completeness, evaluated pose count, trial count, raw
+pre-selection threshold, score definitions, calibration summary) and per-job
+`scratch/search_XXXX_status.json`.
+
+Array convention: Python axis k = MATLAB dimension k+1 (images `[row, col]`, volumes
+`[row, col, page]`); `io.smap_to_zyx` / `io.zyx_to_smap` convert to/from mrcfile-native
+`[z, y, x]`. Rotation stacks are `(n, 3, 3)`, `R[i-1] == R(:,:,i)`. Coordinates written to
+text files are 1-based like v2.1.
 
 ## Run
 
 ```bash
-pip install -e .            # needs numpy scipy mrcfile torch (CUDA build for GPU)
-python -m smap.search_global sample_search.par                 # all nCores jobs in one process
-python -m smap.search_global sample_search.par 2               # job 2 only (like smap_run.sh)
-python -m smap.search_global sample_search.par --batch-size 8  # batched orientations per GPU pass
+pip install -e .            # numpy scipy mrcfile torch (CUDA build for GPU)
+python -m smap.search_global search.par                 # all jobs, then refinement
+python -m smap.search_global search.par --batch-size 8  # batched orientations per GPU pass
+python -m smap.search_global search.par --no-refine     # stop after combine
 ```
 
-`--batch-size 1` reproduces MATLAB's one-orientation-at-a-time order; larger values change only
-scheduling. Precision follows MATLAB: projections in float64, FFT pipeline float32, moments float64.
+## Command-line flags
+
+| Flag | Purpose |
+|---|---|
+| `--path-map OLD=NEW` | rewrite path prefixes in the `.par` (e.g. Docker `/work` → local project folder), repeatable |
+| `--output-dir DIR` | write outputs to DIR instead of the `.par` outputDir (keeps an existing v2.1 `output/` intact) |
+| `--log FILE` | also write all messages to FILE in UTF-8 (use for `run.log`; PowerShell `>` writes UTF-16) |
+| `--batch-size B` | orientations per GPU pass; scheduling only |
+| `--device` | `cpu`, `cuda`, `cuda:1`, … |
+| `--no-refine` | stop after combine |
+| `--max-rotations K` | debug only: the run is flagged incomplete, refinement is skipped, exit code 2, and "Done combining search output" is **not** printed (so RNF213 completion checks ignore it) unless `--allow-incomplete` |
+
+### Running the port on an existing RNF213 tile (without touching the v2.1 output)
+
+```bash
+python -m smap.search_global <tile>/search.par --path-map /work=<project root> \
+       --output-dir <tile>/output_port --batch-size 8 --log <tile>/run_port.log
+python -m smap.compare <tile>/output <tile>/output_port --json <tile>/compare_port.json
+```
+
+`smap.compare` pairs particles one-to-one by search-grid position and reports final/refined
+score differences, rotation angle, defocus, counts at SNR ≥ 7 and ≥ 8, search_mean/SD maps,
+search_SH tails and highVals, against declared tolerances (exit code 1 if any is exceeded).
+Use the same tool for CPU vs GPU and batch 1 vs batch 8.
+
+## Provenance and schema
+
+`search_status.json` records completeness, evaluated pose count, trial count, `arbThr`
+(raw pre-selection threshold, operator `>`), score kind/stage, coordinate frame, sampling,
+the cluster-based calibration summary, and provenance: SHA-256 of image/structure/SP/rotation
+inputs, the `.par` text, port version and git commit (`+modified` if the package has local
+edits), library versions, GPU name and run flags. `particles_schema.json` documents every
+`particles.csv` column; `x_orig0_est, y_orig0_est` are zero-based original-image centres
+estimated from the optimisation (the RNF213 workflow still registers saved patches for final
+coordinates).
+
+## Options (`.par` keys; v2.1 ignores unknown keys; defaults reproduce v2.1)
+
+| Key | Default | Effect |
+|---|---|---|
+| `oversample K` | 1 | Zero-pad the potential K-fold before its FFT. Template CC vs exact projection 0.987 → 0.9997 at K = 2 (`experiments/e1`). GPU memory for the volume ×K³ (single precision when K > 1) |
+| `dedupe_orientations 1` | 0 | Drop repeated grid orientations (φ = 0/φ_max at every θ: 4,750 of 288,990 at 3.8°). Changes rotation indices |
+| `template_bfactor B` | 0 | Multiply the template CTF by exp(−B k²/4) (search, refinement, optimisation). Fit B on detected particles; see `experiments/e3` |
+| `fix_even_grid 1` | 0 | Exact voxel spacing for even potential boxes (v2.1 scales coordinates by (N−1)/N) |
+| `fix_pdb_short_lines 1` | 0 | Keep PDB lines shorter than 78 characters (v2.1 drops them) |
+| `legacy_particle_diameter 0` | 1 | Use the intended particle-diameter box estimate (v2.1's call always fails → `edge_max`) |
+| `fix_cluster_thresholds 1` | 0 | Compare pixel distance with `dThr` and angle with `qThr` (v2.1 swaps them; same result when both are 10) |
+| `fix_optimize_angle 1` | 0 | `optimize_angle` uses the trial rotation (v2.1 builds the template from the starting rotation, so only the shift is optimised) |
+| `refine_local_peak R` | 0 | Final full-image peak in refinement searched within R search pixels of the particle (v2.1: anywhere in the image) |
+
+`df_inc` is an existing key: `experiments/e2` shows the 50 nm default loses on average
+3–15 % CC (B = 100…0 Å²) for particles between planes; 25 nm reduces this to 1–4 %.
 
 ## Tests (`pytest tests_port`)
 
-* `test_parity_octave.py` — compares against the **original MATLAB code executed in Octave 8.4**
-  (`tests_port/refs/refs.mat`, made by `tests_port/octave/make_reference.m`): cropOrPad, resizeForFFT,
-  rrj, nm, resize_F, radialmeanj, psdFilter, mask_central_cross, bindata, applyPhaseShifts, ctf,
-  calculate_search_grid, assignJobs, readParamsFile, the main CC loop (lines 290–560, 5 rotations ×
-  2 defoci, batch 1 and 3), per-atom potential and SP post-processing.
-  Octave shims (`tests_port/octave/shims`) replace `nanmean`, `nansum`, `gather`, `split`.
-* `test_end_to_end.py` — synthetic particle inserted at a known orientation/position; the full
-  `prepare → run_job (2 jobs) → combine` path must return it as the top `highVals.txt` entry.
+* `test_parity_octave.py`, `test_parity_refine.py` — compared with the **original MATLAB code
+  run in Octave 8.4** (`tests_port/refs/*.mat`, generated by `tests_port/octave/*.m`).
+* `test_end_to_end.py` — synthetic particle at known orientation/position through search,
+  clustering, refinement and optimisation (v2.1 defaults and all options on); output files are
+  parsed with the RNF213 reader semantics.
+* `test_options.py` — oversampling accuracy, de-duplication, even-grid spacing, envelope,
+  strict survival counts, cluster-based calibration, layout round trip, incomplete-run flag.
+* `test_compare_cli.py` — full CLI runs with Docker-style `/work` paths remapped: batch 1 vs
+  batch 8 agree within the `smap.compare` tolerances; the comparison detects a 0.5 change in a
+  final score; `run.log` contains the RNF213 completion lines; incomplete runs are not marked done.
+* `tests/test_plot_sh.py` — the legacy `src/smap_tools_python/plot_sh.py` now reports exact
+  strict survival counts of the supplied scores; `Nsamples` only scales the Gaussian reference
+  (fixes the reviewed issue: 3 scores with `Nsamples=100` gave 97 instead of 1).
 
-Not covered by Octave: `mask_a_volume` (Octave's `bwdist` is 2-D only) and the `read_cif_file`
-awk call (Octave's `textscan` collapses empty fields differently from MATLAB).
+Not covered by Octave: `mask_a_volume` (Octave's `bwdist` is 2-D only), `read_cif_file`'s awk
+call, `imresize` (Octave's differs from MATLAB; ported from MATLAB's documented algorithm
+and checked against known MATLAB outputs), `rotationVectorToMatrix` and the quaternion class
+(ported from source), and `fminsearch` (ported from MATLAB's algorithm; Octave's differs).
+Nothing here has been compared with a MATLAB v2.1 run on experimental data yet.
 
-## v2.1 behaviours found during the port (kept unless noted)
+## v2.1 behaviours found during the port (kept unless an option says otherwise)
 
-1. `particleDiameter` calls `bindata` without the `smap.` prefix → always fails (confirmed in Octave),
-   so the SP box is always `edge_max` (512) or the model size if larger. Kept as default;
-   `legacy_particle_diameter 0` in the .par enables the intended estimate.
-2. `psdFilterFlag 0` is broken: `resize_F(ones,1,'newSize')` subtracts the mode and returns zeros
-   → all templates 0, SD = 0, NaN output (confirmed in Octave). **Port deviates**: uses a ones filter.
-3. Scattering-potential grid spacing is `(N-1)/N · aPerPix` when the box edge N is even
-   (from `rrj(...)*(N-1)`): the model is shrunk by 1/N (e.g. 0.3 % at N = 296). Odd N is exact
-   (6ek0_LSU gives N = 327). Kept; worth fixing upstream.
-4. `read_pdb_file` skips every line shorter than 78 characters → PDB files without element
-   columns lose atoms silently. Kept.
-5. Orientation grid includes both φ = 0° and φ = 360° at every θ (duplicates, ~1.6 % of 288,990
-   orientations at 3.8°). Kept.
-6. `search_XXXX_SD.dat` stores only the SD of the last defocus plane (overwritten in the df loop).
-   Normalisation itself is correct. Kept.
-7. `radialmeanj`: pixels beyond the last radial bin (spectrum corners) fall into bin 1 (`histc` → 0 →
-   clamped to 1). Kept.
-8. `resize_F` downsampling removes the volume mode and does not add it back. Kept.
-9. 6ek0_LSU.cif has 18 columns, so the awk `$19` chain column is empty; chain selection would
-   return nothing. Port falls back to column 17 for chain filtering.
-10. `sum1`/`sum2` are accumulated in **double** precision in v2.1 (gpuArray double), not single.
+1. `particleDiameter` calls `bindata` without `smap.` → always fails → SP box = `edge_max`.
+2. `psdFilterFlag 0`: `resize_F(ones,1)` returns zeros → NaN output. **Port deviates** (ones filter).
+3. Even potential box: coordinates scaled by (N−1)/N (`fix_even_grid`).
+4. PDB lines < 78 characters dropped (`fix_pdb_short_lines`).
+5. Orientation grid repeats (`dedupe_orientations`); a peak can be reported under either index.
+6. `search_XXXX_SD.dat` keeps only the last defocus plane's SD.
+7. `radialmeanj`: spectrum corners fall into bin 1.
+8. `resize_F` downsampling removes the volume mode without adding it back.
+9. 18-column CIFs: awk `$19` chain column is empty (port falls back to column 17 for chain filtering).
+10. `sum1`/`sum2` are accumulated in double precision (no precision issue).
+11. Duplicate suppression compares pixel distance with `qThr` and angle with `dThr`.
+12. Refinement defocus scans step `2·aPerPix` then `aPerPix` in nm units (3.0 and 1.5 nm at 1.5 Å/px).
+13. The refinement's final value is the maximum over the **whole** image for the refined template,
+    so a particle's reported position can jump to a different particle (`refine_local_peak`).
+14. `optimize_angle` ignores the four rotation parameters it is given; the Nelder–Mead still moves
+    them, so `q_opt` = small arbitrary rotation × starting rotation (`fix_optimize_angle`).
+15. `RotMat2e` divides by w and is inaccurate near 180° rotations (affects `pairwiseQD`); the port
+    uses a stable conversion for distances and the original one for written quaternions.
+16. Flat-fielded scores are only complete above `x_complete` (raw CC retained only above `arbThr`);
+    `search_status.json` reports it. Search-tail counts are correlated evaluations, not particles;
+    the cluster-based N_eff estimate there is informational and needs particle-free controls.
