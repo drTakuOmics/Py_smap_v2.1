@@ -1,1 +1,0 @@
-smappoi_search_local: grid 28 rotations, 25 shifts for job 1

@@ -1,0 +1,133 @@
+% Reference outputs for the refinement stage (smappoi_search_global.m lines 864-1990),
+% computed with the ORIGINAL MATLAB functions / code lines in Octave.
+% usage: as make_reference.octave (needs out_dir); writes refs_refine.mat
+
+1;  % marks this file as a script so the helper functions below can be defined in it
+
+% ---- Octave shims for MATLAB functions missing in Octave 8 (no effect on SMAP math)
+function m = nanmean(x, dim)
+  if nargin < 2, x = x(:); dim = 1; end
+  m = mean(x, dim, "omitnan");
+end
+function s = nansum(x, dim)
+  if nargin < 2, s = sum(x(~isnan(x))); else, x(isnan(x)) = 0; s = sum(x, dim); end
+end
+function x = gather(x)   % gpuArray gather is a no-op on CPU arrays
+end
+function c = split(s, d)   % MATLAB split(str, delimiter) for a char row vector
+  c = strsplit(s, d)';
+end
+
+pkg load image
+clear ref
+rand('seed', 11); randn('seed', 11);
+global params
+params = struct('Cs', 2.7e-3, 'Cc', 2.7e-3, 'V_acc', 300000, 'deltaE', 0.7, 'a_i', 50e-6, ...
+                'aPerPix', 1.5, 'F_abs', 0);
+
+% ---------------------------------------------------------------- clusterImByThr
+[X, Y] = meshgrid(1:80, 1:70);
+im = 0.3 * randn(70, 80);
+cents = [12 15; 40 22; 41 25; 60 70; 20 60; 55 40];
+for k = 1:size(cents, 1)
+  im = im + (3 + k) * exp(-((Y - cents(k, 1)).^2 + (X - cents(k, 2)).^2) / 6);
+end
+mipi = randi(9, 70, 80);
+Rset = zeros(3, 3, 9);
+for k = 1:9, [Q, ~] = qr(randn(3)); if det(Q) < 0, Q(:, 1) = -Q(:, 1); end; Rset(:, :, k) = Q; end
+[ss, qB, sI, xy] = smap.clusterImByThr(im, mipi, 2.5, Rset);
+mv = zeros(1, numel(ss)); for k = 1:numel(ss), mv(k) = ss(k).MaxVal; end
+ref.cl_im = im; ref.cl_mipi = mipi; ref.cl_R = Rset; ref.cl_xy = xy; ref.cl_mv = mv; ref.cl_q = qB;
+
+% ---------------------------------------------------------------- crop with target, phase shifts
+img = randn(96, 96);
+ref.cr_img = img;
+ref.cr_spill = smap.cropOrPad(img, [32 32], [10 85]);
+ref.cr_in = smap.cropOrPad(img, [32 32], [50 40]);
+ref.cr_spill2 = smap.cropOrPad(img, [40 40], [90 3]);
+ref.aps_real = smap.applyPhaseShifts(img, [1.3 -2.6]);
+ref.aps_cplx = smap.applyPhaseShifts(smap.ftj(img), [0.7 -1.2]);
+ref.q2R = smap.q2R([1.02 0.01 -0.03 0.002]);
+
+% ---------------------------------------------------------------- stage B scoring (lines 1086-1165)
+N = 32; cp = floor(N / 2) + 1;
+[x3, y3, z3] = meshgrid(1:N, 1:N, 1:N);
+SPV = single(exp(-((x3 - 15).^2 / 20 + (y3 - 18).^2 / 35 + (z3 - 16).^2 / 12)) + ...
+      0.3 * exp(-((x3 - 22).^2 + (y3 - 12).^2 + (z3 - 20).^2) / 8));
+V_F = double(fftshift(fftn(ifftshift(SPV + 0i * SPV)))); V_F(cp, cp, cp) = 0;
+V_Fr = real(V_F); V_Fi = imag(V_F); dummyX = 1:N; dummyY = 1:N; dummyZ = 1:N;
+x0 = x3(:, :, cp) - cp; y0 = y3(:, :, cp) - cp; xyz = double([x0(:) y0(:) zeros(N * N, 1)]);
+for k = 1:2, m = N; p_ = floor(m / 2); idx_small_i{k} = [p_ + 1:m 1:p_]; end
+imref = single(randn(96, 96));
+meanImage = single(0.1 * randn(96, 96)); SDImage = single(1 + 0.2 * rand(96, 96));
+fPSD_patch = single(ifftshift(0.5 + rand(N, N))); fPSD_patch(1, 1) = 0;
+xyp = [40 57];
+patch = smap.cropOrPad(imref, N .* [1 1], xyp);
+patch_F = fftn(ifftshift(patch));
+patch_mean = smap.cropOrPad(meanImage, N .* [1 1], xyp);
+patch_SD = smap.cropOrPad(SDImage, N .* [1 1], xyp);
+patch_mask = single(smap.rrj(ones(N, N)) .* N) <= 5; inds_mask = find(patch_mask == 1);
+patchref_F = patch_F ./ std(patch_F(:));
+Rs = zeros(3, 3, 4); Rs(:, :, 1) = eye(3);
+for k = 2:4, [Q, ~] = qr(randn(3)); if det(Q) < 0, Q(:, 1) = -Q(:, 1); end; Rs(:, :, k) = Q; end
+dfs = [440 430 0.3; 446 436 0.3; 452 442 0.3];
+ccR = zeros(1, 4);
+CTFp = ifftshift(imag(smap.ctf(dfs(1, :), N .* [1, 1])));
+for k = 1:4
+  RM = Rs(:, :, k)'; xyz_r = (RM * xyz')' + cp;
+  tr = interpn(dummyX, dummyY, dummyZ, V_Fr, xyz_r(:, 2), xyz_r(:, 1), xyz_r(:, 3), 'linear', 0);
+  ti = interpn(dummyX, dummyY, dummyZ, V_Fi, xyz_r(:, 2), xyz_r(:, 1), xyz_r(:, 3), 'linear', 0);
+  P = reshape(complex(tr, ti), N, N); P = P(idx_small_i{:}); P(1, 1) = 0;
+  temp = P .* fPSD_patch .* CTFp; temp = temp ./ std(temp(:));
+  cc_temp = fftshift(real(ifftn(patchref_F .* conj(temp)))) .* N;
+  cc = (cc_temp(inds_mask) - patch_mean(inds_mask)) ./ patch_SD(inds_mask);
+  ccR(k) = max(cc(:));
+  if k == 2, P2 = P; end
+end
+CTFs = imag(smap.ctf(dfs, N .* [1, 1])); ccD = zeros(1, 3);
+for j = 1:3
+  temp = P2 .* fPSD_patch .* ifftshift(CTFs(:, :, j)); temp(1, 1) = 0; temp = temp ./ std(temp(:));
+  cc_temp = fftshift(real(ifftn(patchref_F .* conj(temp)))) .* N;
+  cc = (cc_temp(inds_mask) - patch_mean(inds_mask)) ./ patch_SD(inds_mask);
+  ccD(j) = max(cc(:));
+end
+ref.b_SPV = SPV; ref.b_imref = imref; ref.b_mean = meanImage; ref.b_SD = SDImage;
+ref.b_fPSD = fPSD_patch; ref.b_xy = xyp; ref.b_R = Rs; ref.b_dfs = dfs; ref.b_ccR = ccR; ref.b_ccD = ccD;
+
+% ---------------------------------------------------------------- stage C (optimize_xcorr pieces)
+SPVc = SPV * 0.002;
+V_F = fftshift(fftn(ifftshift(SPVc))); V_F(cp, cp, cp) = 0;
+V_Fr = single(real(V_F)); V_Fi = single(imag(V_F));
+Rref = smap.normalizeRM(Rs(:, :, 3)');
+CTF = ifftshift(smap.ctf(dfs(1, :), N .* [1, 1]));
+fPc = single(0.5 + rand(N, N)); fPc(cp, cp) = 0;
+imr = smap.nm(randn(N, N)); imr_F = smap.ftj(imr);
+mref = 0.1 * randn(N, N); sref = 1 + 0.2 * rand(N, N);
+mask = smap.rrj(ones(N, N)) .* N; inds_out = find(mask(:) > (N / 2));
+xyz_r = (Rref * xyz')';
+Xq = xyz_r(:, 1) + cp; Yq = xyz_r(:, 2) + cp; Zq = xyz_r(:, 3) + cp;
+tr = interpn(dummyX, dummyX, dummyX, V_Fr, Yq, Xq, Zq, 'linear', 0);
+ti = interpn(dummyX, dummyX, dummyX, V_Fi, Yq, Xq, Zq, 'linear', 0);
+projPot = reshape(complex(tr, ti), N, N);
+ew = exp(1i * ifftn(ifftshift(projPot)));
+w_det = fftshift(ifftn(fftn(ew) .* CTF));
+template = real(w_det .* conj(w_det));
+bgVal = median(template(inds_out));
+template = template - bgVal;
+tF = smap.ftj(template) .* fPc; tF = tF ./ std(tF(:));
+cc_corr = (smap.iftj(imr_F .* conj(tF)) - mref) ./ sref;
+cc_F = smap.ftj(cc_corr);
+[xd, yd] = meshgrid(((0:N - 1) - N / 2) / N, ((0:N - 1) - N / 2) / N);
+shs = [0 0; 0.4 -0.7; -1.3 0.2];
+vals = zeros(1, 3);
+for k = 1:3
+  dphs = xd' .* (-shs(k, 1)) + yd' .* (-shs(k, 2));
+  d_done = real(ifftn(ifftshift(cc_F .* exp(1i .* 2 .* pi .* dphs))));
+  vals(k) = d_done(1) .* N;
+end
+ref.c_SPV = SPVc; ref.c_Rref = Rref; ref.c_df = dfs(1, :); ref.c_fP = fPc; ref.c_imr = imr;
+ref.c_mref = mref; ref.c_sref = sref; ref.c_template = template; ref.c_bg = bgVal;
+ref.c_shs = shs; ref.c_vals = vals;
+
+save('-v7', fullfile(out_dir, 'refs_refine.mat'), 'ref');
+disp('refine reference written');

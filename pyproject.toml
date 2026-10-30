@@ -4,18 +4,30 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smap"
-version = "0.1.0.dev0"
+version = "0.2.0.dev0"
 description = "Python/PyTorch port of SMAP v2.1 high-resolution 2D template matching"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ["numpy", "scipy", "mrcfile", "torch"]
 
 [project.optional-dependencies]
 test = ["pytest"]
+dev = ["pytest", "ruff"]
 
 [project.scripts]
 smap-search-global = "smap.search_global:main"
+smap-compare = "smap.compare:main"
 
 [tool.setuptools]
 packages = ["smap"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    # mrcfile sets ndarray.dtype internally; harmless, raised by NumPy >= 2.5
+    "ignore:Setting the dtype on a NumPy array:DeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 110

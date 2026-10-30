@@ -10,7 +10,7 @@ def sinchi(df):
     return np.sin(chi)
 for B in (0, 50, 100):
     S2 = np.exp(-B * k**2 / 2) * k                     # signal power x 2-D ring weight
-    def rho(d):
+    def rho(d, S2=S2):
         a, b = sinchi(df0), sinchi(df0 + d)
         return np.sum(S2 * a * b) / np.sqrt(np.sum(S2 * a * a) * np.sum(S2 * b * b))
     for step in (500, 250, 100):  # A  (50, 25, 10 nm)

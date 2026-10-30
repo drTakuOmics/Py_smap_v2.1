@@ -1,4 +1,4 @@
-"""Port of smappoi_search_global.m (setup, main cross-correlation loop, combine step).
+"""Port of smappoi_search_global.m: setup, global search, combine, and the CLI.
 
 Structure follows the MATLAB file:
 
@@ -7,8 +7,9 @@ Structure follows the MATLAB file:
 * :func:`run_job`     lines 486-627  per-orientation template generation + CC,
                                      moments, above-threshold list, scratch outputs
 * :func:`combine`     lines 628-863  merge jobs, pixelwise (flat-field) normalisation,
-                                     survival histogram, highVals.txt
-* clustering + particle optimisation (lines 864-1990) are NOT ported yet.
+                                     survival histogram, highVals.txt, search_status.json
+* lines 864-1990 (clustering, refinement, optimisation, final files) live in
+  :mod:`smap.refine`; :func:`main` chains everything like the compiled v2.1 binary.
 
 The arithmetic follows MATLAB's precision: projections/templates in float64, the FFT
 pipeline in float32, moment accumulation (sum1/sum2) in float64.
@@ -292,7 +293,7 @@ def _templates(Vr, Vi, Rb, gx, gy, cp):
     return torch.fft.fftshift(templ, dim=(1, 2))
 
 
-def make_templates(st: "SearchSetup", rot_indices, device="cpu") -> np.ndarray:
+def make_templates(st: SearchSetup, rot_indices, device="cpu") -> np.ndarray:
     """Real-space templates (no CTF) for 1-based rotation indices -> (n, N, N)."""
     import torch
     dev = torch.device(device)
@@ -352,7 +353,9 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
 
     imF = torch.as_tensor(st.imref_F_half, device=dev)                 # (h0,N1) c64
     fPSD = torch.as_tensor(st.fPSD_half, device=dev)                   # (h0,N1) f32
-    CTF = torch.as_tensor(np.moveaxis(st.CTF_half, 2, 0), device=dev)  # (nD,h0,N1) f64
+    # MATLAB multiplies the single-precision template spectrum by the double CTF, which
+    # yields single precision: convert once here instead of in every batch.
+    CTF32 = torch.as_tensor(np.moveaxis(st.CTF_half, 2, 0), device=dev).to(torch.float32)  # (nD,h0,N1)
     norm_factor = float(N0 * N1)
     scale_temp = float(2.0 * math.sqrt(h0 * N1))
 
@@ -362,7 +365,7 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
 
     sum1 = torch.zeros((nD, N1, N0), dtype=torch.float64, device=dev)  # stored transposed
     sum2 = torch.zeros_like(sum1)
-    SD_all = np.zeros((n_rot, nD), dtype=np.float32)
+    SD_all = torch.zeros((n_rot, nD), dtype=torch.float32, device=dev)  # copied once at the end
     arb_chunks = []
     arb_thr = float(p["arbThr"])
 
@@ -378,7 +381,7 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
         temp = torch.fft.rfftn(timg, dim=(2, 1))                       # (B,h0,N1) c64
         temp = temp / scale_temp
         temp = temp * fPSD
-        tF = temp[:, None] * CTF.to(torch.float32)[None]               # (B,nD,h0,N1)
+        tF = temp[:, None] * CTF32[None]                               # (B,nD,h0,N1)
         v = (tF.real ** 2 + tF.imag ** 2).sum(dim=(2, 3))              # float32
         SD = torch.sqrt(2.0 * v / norm_factor)
         tF = tF / SD[:, :, None, None]
@@ -388,7 +391,7 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
         ccd = cc.double().transpose(2, 3)                              # (B,nD,N1,N0)
         sum1 += ccd.sum(0)
         sum2 += (ccd ** 2).sum(0)
-        SD_all[b0:b1] = SD.cpu().numpy()
+        SD_all[b0:b1] = SD
 
         hit = ccd > arb_thr
         if bool(hit.any()):
@@ -407,6 +410,7 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
     arb = np.concatenate(arb_chunks, 0) if arb_chunks else np.zeros((0, 3))
     s1 = sum1.permute(2, 1, 0).cpu().numpy()   # back to (N0,N1,nD)
     s2 = sum2.permute(2, 1, 0).cpu().numpy()
+    SD_all = SD_all.cpu().numpy()
     SD_last = SD_all[:, -1]                    # QUIRK: MATLAB keeps only the last df's SD
 
     if write_files:
@@ -572,7 +576,7 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     if a.log:
         import sys
-        fh = open(a.log, "a", encoding="utf-8")
+        fh = open(a.log, "a", encoding="utf-8")  # noqa: SIM115 (closed in finally)
 
         class _Tee:
             def __init__(self, *s): self.s = s
