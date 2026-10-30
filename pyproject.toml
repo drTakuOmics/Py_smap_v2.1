@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smap"
+version = "0.1.0.dev0"
+description = "Python/PyTorch port of SMAP v2.1 high-resolution 2D template matching"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = ["numpy", "scipy", "mrcfile", "torch"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+smap-search-global = "smap.search_global:main"
+
+[tool.setuptools]
+packages = ["smap"]
