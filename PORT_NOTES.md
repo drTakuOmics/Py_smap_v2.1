@@ -24,8 +24,17 @@ Output files keep v2.1 names and formats, and parse with the RNF213 review reade
 "nothing to optimize", "Done combining search output").
 
 New outputs: `search_status.json` (completeness, evaluated pose count, trial count, raw
-pre-selection threshold, score definitions, calibration summary) and per-job
-`scratch/search_XXXX_status.json`.
+pre-selection threshold, score definitions, calibration summary, decoy settings, MIP summary)
+and per-job `scratch/search_XXXX_status.json`.
+
+Full-image maps (on by default, `write_mip 0` disables; they do not change any v2.1 file):
+`search_mip.mrc` (max raw CC over orientations at the best defocus plane),
+`search_mip_scaled.mrc` (its pixelwise z-score; equals `search_vals.mrc` wherever v2.1 kept a
+value, i.e. raw CC > `arbThr`), `search_mip_qInds.mrc`, `search_mip_dfInds.mrc` and
+`search_pval.mrc` (−ln p, anisotropic-Gaussian p-value of Zhang et al., IUCrJ 2025, computed
+over the kept region; `smap/pvalue.py`, same computation as Leopard-EM, |Δ| < 1e-3 on test
+data). `particles.csv` gains `neg_log_p_search`. v2.1 keeps flat-fielded values only above
+`arbThr`, so a complete MIP / p-value map was not available before.
 
 Array convention: Python axis k = MATLAB dimension k+1 (images `[row, col]`, volumes
 `[row, col, page]`); `io.smap_to_zyx` / `io.zyx_to_smap` convert to/from mrcfile-native
@@ -90,9 +99,36 @@ coordinates).
 | `fix_cluster_thresholds 1` | 0 | Compare pixel distance with `dThr` and angle with `qThr` (v2.1 swaps them; same result when both are 10) |
 | `fix_optimize_angle 1` | 0 | `optimize_angle` uses the trial rotation (v2.1 builds the template from the starting rotation, so only the shift is optimised) |
 | `refine_local_peak R` | 0 | Final full-image peak in refinement searched within R search pixels of the particle (v2.1: anywhere in the image) |
+| `refine_continuous 1` | 0 | Stage C: one Nelder–Mead over rotation vector (3, deg), shift (2, px) and common defocus offset (1, nm) with initial steps inc_degrees/2, 0.5 px, 2·aPerPix nm, instead of v2.1's quaternion (4 params, one redundant) + shift with initial steps ≈0.03° and 0.025 px and no defocus. Refined defocus is written to particles.par/csv (`experiments/e4`) |
+| `write_mip 0` | 1 | Do not write the MIP / p-value maps |
+| `decoy_template mirror` | — | Search with the mirror image (enantiomer) of the potential: page axis reflected about the rotation centre. For target–decoy FDR (`smap.decoy`) |
+| `decoy_image phase_random` | — | Search a phase-randomised copy of the image (same amplitude spectrum, `decoy_seed S`) |
 
 `df_inc` is an existing key: `experiments/e2` shows the 50 nm default loses on average
 3–15 % CC (B = 100…0 Å²) for particles between planes; 25 nm reduces this to 1–4 %.
+
+## Target–decoy calibration (`smap.decoy`)
+
+Run each tile twice with identical settings, the second time with `decoy_template mirror`
+(writes `<model>_decoy_mirror.mrc` in the output folder) and `--output-dir <tile>/output_decoy`.
+FDR(c) ≈ N_decoy(score ≥ c) / N_target(score ≥ c); q = running minimum from the top.
+`python -m smap.decoy --pair T D [--pair ...] --cutoff 8` writes `.json/.csv/.png/.pdf`.
+The mirror decoy keeps mass, size and spectrum; structures with near-mirror features still
+partly match their mirror, so it tends to over-estimate false positives. The phase-randomised
+image (`decoy_image phase_random`) removes all structure and tends to under-estimate false
+positives caused by real non-target density. Either doubles the search time.
+
+## RELION / cryoSPARC export (`smap.export`)
+
+RELION angles are the ZYZ decomposition (RELION `Euler_matrix2angles`) of `q_opt`. Checked by
+projecting the potential in real space with RELION's definition P(x,y) = Σ_z V(Aᵀ[x,y,z])
+(independent of SMAP code): NCC 0.989–0.994 with the SMAP templates vs 0.74–0.83 for the
+inverse rotation or the mirror volume (`tests/test_export.py`). Not yet run through RELION
+itself. Defocus: U/V = df1/df2 × 10 Å, angle = −ast·180/π (= particles.par ANGAST).
+Coordinates are zero-based like the RNF213 STAR files (`--coord-origin 1` otherwise).
+`--images` adds `rlnImageName j@particles.mrc` (centred SMAP patches, origin 0) so
+`relion_reconstruct --ctf` can run on the detected patches directly. SMAP's search does not
+model amplitude contrast (`F_abs 0`); the STAR uses `--amp-contrast` (default 0.07).
 
 ## Tests (`pytest tests`)
 
@@ -106,6 +142,12 @@ coordinates).
 * `test_compare_cli.py` — full CLI runs with Docker-style `/work` paths remapped: batch 1 vs
   batch 8 agree within the `smap.compare` tolerances; the comparison detects a 0.5 change in a
   final score; `run.log` contains the RNF213 completion lines; incomplete runs are not marked done.
+* `test_decoy.py` — mirror decoy keeps the rotation centre, phase randomisation keeps |F|,
+  FDR/q bookkeeping, target vs mirror-decoy runs through the CLI.
+* `test_export.py` — RELION Euler round trip, Frealign inverse, real-space projection check,
+  STAR writer.
+* `test_pvalue_mip.py` — MIP maps equal v2.1's `search_vals.mrc` where v2.1 kept values; the
+  planted particle is the p-value maximum; background tail.
 
 Not covered by Octave: `mask_a_volume` (Octave's `bwdist` is 2-D only), `read_cif_file`'s awk
 call, `imresize` (Octave's differs from MATLAB; ported from MATLAB's documented algorithm

@@ -85,6 +85,50 @@ def apply_path_map(params: dict, path_map) -> dict:
     return params
 
 
+def apply_decoy(params: dict, out_dir: Path, log) -> None:
+    """OPTIONS for target-decoy calibration (see smap.decoy). Decoy inputs are written to
+    the output folder and substituted for modelFile / imageFile, so every later stage
+    (search, refinement, optimisation) uses them consistently.
+
+    ``decoy_template mirror``  enantiomer of the scattering potential (z axis reflected
+        about the SMAP centre voxel): same size, mass and spectrum, wrong hand.
+    ``decoy_image phase_random`` (``decoy_seed S``)  image with randomised Fourier phases
+        and the original amplitudes: same power spectrum, no particles.
+    """
+    params["decoy"] = None
+    mode_t = (params.get("decoy_template") or "").strip().lower()
+    mode_i = (params.get("decoy_image") or "").strip().lower()
+    if mode_t:
+        if mode_t != "mirror":
+            raise ValueError(f"decoy_template must be 'mirror', got {mode_t!r}")
+        spv = sio.mr(params["modelFile"])
+        n = spv.shape[2]
+        mir = np.flip(spv, axis=2)
+        if n % 2 == 0:            # keep voxel cp = n//2+1 fixed: j = (2*(cp-1) - i) mod n
+            mir = np.roll(mir, 1, axis=2)
+        fn = out_dir / (Path(params["modelFile"]).stem + "_decoy_mirror.mrc")
+        sio.mw(np.ascontiguousarray(mir), fn, params["aPerPix"])
+        params["modelFile"] = str(fn)
+        _log(log, f"DECOY: mirrored (enantiomer) template -> {fn.name}")
+    if mode_i:
+        if mode_i != "phase_random":
+            raise ValueError(f"decoy_image must be 'phase_random', got {mode_i!r}")
+        im = sio.mr(params["imageFile"]).astype(np.float64)
+        rng = np.random.default_rng(int(params.get("decoy_seed") or 0))
+        F = np.fft.fft2(im)
+        ph = np.angle(np.fft.fft2(rng.standard_normal(im.shape)))   # Hermitian random phases
+        ph[0, 0] = 0.0
+        out = np.real(np.fft.ifft2(np.abs(F) * np.exp(1j * ph)))
+        seed = int(params.get("decoy_seed") or 0)
+        fn = out_dir / (Path(params["imageFile"]).stem + f"_decoy_phase{seed}.mrc")
+        sio.mw(out.astype(np.float32), fn, params["aPerPix"])
+        params["imageFile"] = str(fn)
+        _log(log, f"DECOY: phase-randomised image -> {fn.name}")
+    if mode_t or mode_i:
+        params["decoy"] = dict(template=mode_t or None, image=mode_i or None,
+                               seed=int(params.get("decoy_seed") or 0))
+
+
 def prepare(params_file: str | Path, device=None, write_files: bool = True,
             path_map=None, output_dir=None) -> SearchSetup:
     """Everything before the main loop (MATLAB lines 51-485), shared by all jobs."""
@@ -151,6 +195,8 @@ def prepare(params_file: str | Path, device=None, write_files: bool = True,
     if params.get("aPerPix_search") is None:
         params["aPerPix_search"] = params["aPerPix"]
     a_orig = float(params["aPerPix"])
+
+    apply_decoy(params, out_dir, log)   # no-op unless a decoy option is set
 
     # ---- image (MATLAB lines 186-270)
     im = sio.mr(params["imageFile"]).astype(np.float64)
@@ -366,6 +412,12 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
     sum1 = torch.zeros((nD, N1, N0), dtype=torch.float64, device=dev)  # stored transposed
     sum2 = torch.zeros_like(sum1)
     SD_all = torch.zeros((n_rot, nD), dtype=torch.float32, device=dev)  # copied once at the end
+    # NEW (write_mip): per-pixel maximum raw CC over orientations and its rotation index;
+    # extra files only, v2.1 outputs are unchanged
+    track_mip = bool(int(p.get("write_mip", 1) or 0))
+    if track_mip:
+        mip = torch.full((nD, N1, N0), -float("inf"), dtype=torch.float32, device=dev)
+        mip_idx = torch.zeros((nD, N1, N0), dtype=torch.float32, device=dev)
     arb_chunks = []
     arb_thr = float(p["arbThr"])
 
@@ -392,6 +444,11 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
         sum1 += ccd.sum(0)
         sum2 += (ccd ** 2).sum(0)
         SD_all[b0:b1] = SD
+        if track_mip:
+            bmax, barg = cc.transpose(2, 3).max(dim=0)
+            upd = bmax > mip
+            mip = torch.where(upd, bmax, mip)
+            mip_idx = torch.where(upd, (barg + b0 + 1 + file_mult).to(torch.float32), mip_idx)
 
         hit = ccd > arb_thr
         if bool(hit.any()):
@@ -419,6 +476,11 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
         sio.mw(s2, st.scratch_dir / f"search_{tag}_ssum.mrc", st.params["aPerPix"])
         sio.write_single(st.scratch_dir / f"search_{tag}_SD.dat", SD_last)
         sio.write_double(st.scratch_dir / f"search_{tag}_arb.dat", arb)
+        if track_mip:
+            sio.mw(mip.permute(2, 1, 0).cpu().numpy(), st.scratch_dir / f"search_{tag}_mip.mrc",
+                   st.params["aPerPix"])
+            sio.mw(mip_idx.permute(2, 1, 0).cpu().numpy(), st.scratch_dir / f"search_{tag}_mipidx.mrc",
+                   st.params["aPerPix"])
         (st.scratch_dir / f"search_{tag}_status.json").write_text(json.dumps(
             dict(job=jobref, evaluated_orientations=int(n_rot),
                  assigned_orientations=int(assign_jobs(st.R_full.shape[0], n_cores, jobref).size))))
@@ -534,6 +596,7 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
     sio.mw(mean_im, out / "search_mean.mrc", p["aPerPix"])
     sio.mw(sd_im, out / "search_SD.mrc", p["aPerPix"])
     sio.write_single(out / "search_SDs.dat", np.concatenate(SDl) if SDl else [])
+    mip_info = combine_mip(st, n_jobs, mean_im, sd_im, keep_region(st, margin))
     from .provenance import provenance
     from .stats import calibrate_threshold
     cal = calibrate_threshold(ff, mean_im, sd_im, float(p["arbThr"]), keep_region(st, margin),
@@ -544,10 +607,58 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
                   score_stage="global search (pre-refinement)", coordinate_frame=
                   "search grid, 1-based [row, col], padded image", sampling_A=float(p["aPerPix"]),
                   gaussian_threshold=thr, calibration=cal, smap_port_version=__version__,
-                  provenance=provenance(p))
+                  decoy=p.get("decoy"), mip=mip_info, provenance=provenance(p))
     (out / "search_status.json").write_text(json.dumps(status, indent=1))
     return dict(is_complete=complete, av_norm=av_norm, ai=ai, locs=locs, thr=thr, ff=ff, ff_inds=ff_inds,
                 mean=mean_im, sd=sd_im)
+
+
+def combine_mip(st: SearchSetup, n_jobs: int, mean_im, sd_im, valid) -> dict | None:
+    """NEW (write_mip): full-image maps on the search grid (padded frame, like search_mean):
+
+    search_mip.mrc         raw MIP (max CC over orientations) at the best defocus plane
+    search_mip_scaled.mrc  its pixelwise z-score (mip - mean)/SD (= SMAP flat-fielded score;
+                           equals search_vals.mrc wherever v2.1 kept a value)
+    search_mip_qInds.mrc   1-based rotation index of the MIP
+    search_mip_dfInds.mrc  1-based defocus plane maximising the z-score
+    search_pval.mrc        -ln p, anisotropic-Gaussian p-value (smap.pvalue) over the kept region
+    """
+    sd = st.scratch_dir
+    files = [(sd / f"search_{zp_int(j)}_mip.mrc", sd / f"search_{zp_int(j)}_mipidx.mrc")
+             for j in range(1, n_jobs + 1)]
+    if not all(a.exists() and b.exists() for a, b in files):
+        return None
+    from .pvalue import pvalue_map
+    N0, N1 = st.Npix_im
+    nD = st.n_dfs
+    mip = np.full((N0, N1, nD), -np.inf)
+    idx = np.zeros((N0, N1, nD))
+    for a, b in files:
+        m = sio.mr(a).astype(np.float64).reshape(N0, N1, nD)
+        i = sio.mr(b).astype(np.float64).reshape(N0, N1, nD)
+        upd = m > mip
+        mip[upd], idx[upd] = m[upd], i[upd]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        z = (mip - mean_im) / sd_im
+    z = np.where(np.isfinite(z), z, -np.inf)
+    best = np.argmax(z, axis=2)
+    take = lambda a: np.take_along_axis(a, best[:, :, None], 2)[:, :, 0]  # noqa: E731
+    mip2, z2, q2 = take(mip), take(z), take(idx)
+    valid = valid & np.isfinite(z2) & np.isfinite(mip2)
+    mip2[~valid], z2[~valid] = 0.0, 0.0
+    pv = pvalue_map(mip2, z2, valid)
+    a = st.params["aPerPix"]
+    out = st.out_dir
+    sio.mw(mip2, out / "search_mip.mrc", a)
+    sio.mw(z2, out / "search_mip_scaled.mrc", a)
+    sio.mw(q2, out / "search_mip_qInds.mrc", a)
+    sio.mw((best + 1).astype(np.float32), out / "search_mip_dfInds.mrc", a)
+    sio.mw(pv, out / "search_pval.mrc", a)
+    return dict(files=["search_mip.mrc", "search_mip_scaled.mrc", "search_mip_qInds.mrc",
+                       "search_mip_dfInds.mrc", "search_pval.mrc"],
+                n_valid_pixels=int(valid.sum()), max_scaled=float(z2[valid].max()) if valid.any() else None,
+                max_neg_log_p=float(pv.max()) if valid.any() else None,
+                pvalue="-ln p, Zhang et al. IUCrJ 2025 anisotropic Gaussian, quadrant 1")
 
 
 # ============================================================================ CLI

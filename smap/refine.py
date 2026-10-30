@@ -19,6 +19,12 @@ Options (``.par`` keys, default = v2.1 behaviour):
                             (v2.1: anywhere in the image; 0 = v2.1)
   ``fix_cluster_thresholds 1`` compare distance with dThr and angle with qThr
                             (v2.1 swaps them; identical when both are 10)
+  ``refine_continuous 1``   replace optimize_angle by one Nelder-Mead over a minimal,
+                            scaled parameter set: rotation vector (3, degrees), shift
+                            (2, pixels) and common defocus offset (1, nm); initial
+                            simplex = [inc_degrees/2, 0.5 px, df step]. v2.1 searches a
+                            4-parameter quaternion (one redundant scale) plus shift with
+                            initial steps of ~0.03 deg and 0.025 px, and never defocus.
 """
 
 from __future__ import annotations
@@ -33,7 +39,7 @@ from scipy import ndimage
 from . import io as sio
 from .ctf import ctf, template_envelope
 from .grid import q2r
-from .rot import bump_rotations, pairwise_qd, rotm_to_quat, smap2frealign
+from .rot import bump_rotations, pairwise_qd, rodrigues, rotm_to_quat, smap2frealign
 from .search_global import SearchSetup, _trilinear
 from .utils import (apply_phase_shifts_2d, crop_or_pad, crop_patch, ftj, iftj,
                     imresize_bilinear, mask_a_volume, mask_central_cross,
@@ -280,9 +286,10 @@ def refine_particles(st: SearchSetup, jobs, mean_im, sd_im, device=None, batch=6
 
 # ============================================================================ stage C
 
-def fminsearch(f, x0, tol_fun=1e-3, tol_x=1e-4, max_iter=None, max_fev=None):
+def fminsearch(f, x0, tol_fun=1e-3, tol_x=1e-4, max_iter=None, max_fev=None, step=None):
     """MATLAB fminsearch (Nelder-Mead, Lagarias et al.) with MATLAB's initial simplex,
-    coefficients, ordering and stopping rules."""
+    coefficients, ordering and stopping rules. ``step`` (port addition): explicit initial
+    simplex edge per parameter instead of MATLAB's 5 % / 0.00025 rule."""
     x0 = np.asarray(x0, dtype=np.float64).ravel()
     n = x0.size
     max_iter = max_iter or 200 * n
@@ -294,7 +301,10 @@ def fminsearch(f, x0, tol_fun=1e-3, tol_x=1e-4, max_iter=None, max_fev=None):
     fv[0] = f(x0)
     for j in range(n):
         y = x0.copy()
-        y[j] = (1 + 0.05) * y[j] if y[j] != 0 else 0.00025
+        if step is not None:
+            y[j] = y[j] + step[j]
+        else:
+            y[j] = (1 + 0.05) * y[j] if y[j] != 0 else 0.00025
         v[j + 1] = y
         fv[j + 1] = f(y)
     o = np.argsort(fv, kind="stable"); v, fv = v[o], fv[o]
@@ -445,9 +455,16 @@ class _Optimizer:
             tmp = (iftj(imref_F * np.conj(cache[key])) - meanref) / SDref
             return -self.cc_value_at_shift(ftj(tmp), x[4:6] * 100)
 
-        ang, _ = fminsearch(obj, [1, 0, 0, 0, 0, 0])
-        RM = q2r(ang[:4]) @ Rref
-        shifts = shifts + ang[4:6] * 100
+        df_out = np.asarray(prt["df"], dtype=np.float64).copy()
+        if int(self.p.get("refine_continuous", 0) or 0):
+            RM, dsh, ddf = self._continuous(Rref, prt["df"], imref_F, meanref, SDref, bg)
+            shifts = shifts + dsh
+            df_out[:2] += ddf
+            CTF = np.fft.ifftshift(ctf(np.atleast_2d(df_out), [N, N], p)[:, :, 0] * template_envelope(N, p))
+        else:
+            ang, _ = fminsearch(obj, [1, 0, 0, 0, 0, 0])
+            RM = q2r(ang[:4]) @ Rref
+            shifts = shifts + ang[4:6] * 100
         xy_opt = (xy[0] - shifts[0], xy[1] - shifts[1])
 
         tm = self.template(RM, CTF) - bg
@@ -461,7 +478,40 @@ class _Optimizer:
         tF = tF / np.std(tF, ddof=1)
         cc = (iftj(ftj(nf_s) * np.conj(tF)) - mean_s) / sd_s
         peak_opt = float(cc[xy[0] - 1, xy[1] - 1])
-        return dict(q_opt=RM.T, xy_opt=xy_opt, peak_opt=peak_opt, patch=patchref, template=tm)
+        return dict(q_opt=RM.T, xy_opt=xy_opt, peak_opt=peak_opt, patch=patchref, template=tm, df=df_out)
+
+    def _continuous(self, Rref, df, imref_F, meanref, SDref, bg):
+        """OPTION refine_continuous: x = [rotvec (deg, 3), shift (px, 2), d_defocus (nm)].
+        The template rotation is rodrigues(x[:3]) @ Rref (same composition as v2.1's
+        q2r(x[:4]) @ Rref). Returns (R, shift, d_defocus)."""
+        p, N = self.p, self.N
+        df0 = np.asarray(df, dtype=np.float64)
+        ctf_cache, tm_cache = {}, {}
+
+        def ctf_for(ddf):
+            k = round(float(ddf), 4)
+            if k not in ctf_cache:
+                d = df0.copy()
+                d[:2] += k
+                ctf_cache[k] = np.fft.ifftshift(ctf(np.atleast_2d(d), [N, N], p)[:, :, 0]
+                                                * template_envelope(N, p))
+            return ctf_cache[k]
+
+        def obj(x):
+            Rt = rodrigues(np.radians(x[:3])) @ Rref
+            key = (Rt.tobytes(), round(float(x[5]), 4))
+            if key not in tm_cache:
+                tm = self.template(Rt, ctf_for(x[5])) - bg
+                f2 = ftj(tm) * self.fPSD_patch
+                tm_cache[key] = f2 / np.std(f2, ddof=1)
+            tmp = (iftj(imref_F * np.conj(tm_cache[key])) - meanref) / SDref
+            return -self.cc_value_at_shift(ftj(tmp), x[3:5])
+
+        inc = float(p.get("inc_degrees") or 0.5)
+        df_step = 2.0 * float(p["aPerPix"])           # nm; same as the stage-B defocus scan
+        x, _ = fminsearch(obj, np.zeros(6), tol_fun=1e-4, tol_x=1e-3, max_fev=900,
+                          step=[inc / 2] * 3 + [0.5, 0.5] + [df_step])
+        return rodrigues(np.radians(x[:3])) @ Rref, x[3:5], float(x[5])
 
 
 def optimize_particles(st: SearchSetup, particles, device=None, log=print):
@@ -501,6 +551,8 @@ def write_final(st: SearchSetup, optimized, jobs_sizes=None):
 
     q_offset = np.diag([1.0, -1.0, -1.0])
     mag = 5000.0 / (a / 10)
+    pv_file = out / "search_pval.mrc"
+    pv = sio.mr(pv_file) if pv_file.exists() else None
     with open(out / "particles.par", "w") as fr, open(out / "particles.txt", "w") as fc, \
             open(out / "particles.csv", "w") as fcsv:
         fr.write("C           PSI   THETA     PHI       SHX       SHY     MAG  FILM      DF1"
@@ -508,7 +560,7 @@ def write_final(st: SearchSetup, optimized, jobs_sizes=None):
         fc.write("#\tCC\n")
         fcsv.write("num_id,score_final,score_refined,x_orig0_est,y_orig0_est,row,col,row_opt,"
                    "col_opt,row_search,col_search,df1_nm,df2_nm,ast_rad,"
-                   + ",".join(f"q_opt_{i}{j}" for i in range(3) for j in range(3)) + "\n")
+                   + ",".join(f"q_opt_{i}{j}" for i in range(3) for j in range(3)) + ",neg_log_p_search\n")
         for k, o in enumerate(optimized, 1):
             Q = normalize_rm(o["q_opt"] @ q_offset)
             psi_, th_, phi_ = smap2frealign(Q[None])[0]
@@ -523,8 +575,16 @@ def write_final(st: SearchSetup, optimized, jobs_sizes=None):
             fc.write(str(k).rjust(7) + "  %6.3f\n" % o["peak_opt"])
             fcsv.write(",".join(str(v) for v in [k, o["peak_opt"], o["peak"], *o["xy_orig0_est"],
                                                   *o["xy"], *o["xy_opt"], *o["xy_search"], *df,
-                                                  *o["q_opt"].ravel()]) + "\n")
+                                                  *o["q_opt"].ravel(), _pv_at(pv, o["xy_search"])]) + "\n")
     (out / "particles_schema.json").write_text(json.dumps(PARTICLES_SCHEMA, indent=1))
+
+
+def _pv_at(pv, rc) -> float:
+    """-ln p of the search-grid pixel (1-based row, col); nan without search_pval.mrc."""
+    if pv is None:
+        return float("nan")
+    r, c = int(round(rc[0])) - 1, int(round(rc[1])) - 1
+    return float(pv[r, c]) if 0 <= r < pv.shape[0] and 0 <= c < pv.shape[1] else float("nan")
 
 
 PARTICLES_SCHEMA = {
@@ -542,7 +602,10 @@ PARTICLES_SCHEMA = {
         "row_search, col_search": "1-based search-grid position (= list_final.txt cols 2-3)",
         "df1_nm, df2_nm, ast_rad": "refined defocus (nm) and astigmatism angle (rad, SMAP sign)",
         "q_opt_ij": "rotation matrix q_opt (MATLAB tableref.q_opt); particles.par holds the "
-                    "Frealign angles of q_opt*diag(1,-1,-1)",
+                    "Frealign angles of q_opt*diag(1,-1,-1); RELION angles = ZYZ of q_opt "
+                    "(smap.export)",
+        "neg_log_p_search": "-ln p (anisotropic-Gaussian p-value, Zhang et al. 2025) of the "
+                            "search-grid pixel from search_pval.mrc; nan if write_mip 0",
     },
     "threshold_operator": "particle selection downstream uses score_final >= cutoff",
     "units": {"pixels": "original sampling (aPerPix)", "defocus": "nm"},

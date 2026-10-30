@@ -42,6 +42,7 @@ def _rnf213_matrix(path, skiprows=0):
     "",                                                     # v2.1 behaviour
     "oversample 2\ndedupe_orientations 1\nfix_optimize_angle 1\nrefine_local_peak 20\n"
     "fix_cluster_thresholds 1\ntemplate_bfactor 20\n",     # all round-1 options
+    "refine_continuous 1\nrefine_local_peak 20\n",          # round-2 stage-C optimiser
 ])
 def test_full_pipeline_through_refinement(tmp_path, extra):
     r0, c0 = 50, 95

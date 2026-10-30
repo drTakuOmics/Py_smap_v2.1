@@ -18,6 +18,8 @@ dev = ["pytest", "ruff"]
 [project.scripts]
 smap-search-global = "smap.search_global:main"
 smap-compare = "smap.compare:main"
+smap-decoy = "smap.decoy:main"
+smap-export = "smap.export:main"
 
 [tool.setuptools]
 packages = ["smap"]
