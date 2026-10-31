@@ -13,6 +13,10 @@ spec = importlib.util.spec_from_file_location(
     "rnf213_correlogram", Path(__file__).resolve().parents[1] / "tools" / "rnf213_correlogram.py")
 corr = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(corr)
+spec2 = importlib.util.spec_from_file_location(
+    "rnf213_landscape", Path(__file__).resolve().parents[1] / "tools" / "rnf213_landscape.py")
+land = importlib.util.module_from_spec(spec2)
+spec2.loader.exec_module(land)
 
 
 def test_correlogram_figures(tmp_path):
@@ -38,3 +42,9 @@ def test_correlogram_figures(tmp_path):
     assert abs(float(best["x_px"]) - (95 + 640)) <= 1 and abs(float(best["y_px"]) - (50 + 100)) <= 1
     with pytest.raises(SystemExit):
         corr.main(["--tile", str(tile), "--out", str(out)])
+
+    # whole-micrograph landscape (one section searched)
+    land.main(["--tree", str(tmp_path / "tiles"), "--bin", "6", "--cutoff", "6", "--out", str(tmp_path / "land")])
+    assert (tmp_path / "land" / "landscape.png").exists()
+    lrows = list(csv.DictReader(open(tmp_path / "land" / "landscape_candidates.csv")))
+    assert abs(float(lrows[0]["x_px"]) - 735) <= 1 and abs(float(lrows[0]["y_px"]) - 150) <= 1

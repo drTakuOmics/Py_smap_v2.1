@@ -66,6 +66,13 @@ python ../Py_smap_v2.1/tools/rnf213_correlogram.py --tile tiles_3p8_port/tile_00
 Overview (tile top view), one figure per candidate (3-D landscape, top view with the cutoff
 contour, x/y profiles), a gallery of all candidates, `candidates.csv`; PNG/PDF/SVG + JSON.
 
+Whole micrograph in one 3-D space (all port-searched sections stitched, candidates merged
+across overlaps within 20 px and labelled "id: final SNR"):
+
+```bash
+python ../Py_smap_v2.1/tools/rnf213_landscape.py --tree tiles_3p8_port --out figures/landscape_3p8
+```
+
 ## Target–decoy and STAR export
 
 The decoy is a different protein of similar mass and size (not a mirror image; see
