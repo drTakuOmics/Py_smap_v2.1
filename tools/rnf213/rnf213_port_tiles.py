@@ -12,7 +12,8 @@ Run every command from the project root (the folder mounted as /work for Docker)
 CUDA PyTorch installed (no sudo, no Docker).
 
   prepare  --source tiles_3p8 --dest tiles_3p8_port [--set KEY=VALUE ...]
-  run      --tiles tiles_3p8_port [--only tile_0003 ...] [--device cuda] [--batch-size 8]
+  run      --tiles tiles_3p8_port [--only tile_0003 ...] [--images image_0001 ...]
+           [--device cuda] [--batch-size 8]
   status   --tiles tiles_3p8_port
   compare  --a tiles_3p8 --b tiles_3p8_port [--out compare_port]
 
@@ -218,8 +219,11 @@ def prepare(root: Path, src: Path, dest: Path, sets: list[str]):
     print(f"Prepared {len(plan)} tiles in {dest} ({n_link} images hard-linked); options {changes or 'none'}")
 
 
-def run(root: Path, tiles: Path, only, device, batch_size, keep_going, dry):
-    todo = [t for t in all_tiles(tiles) if not only or t.name in only]
+def run(root: Path, tiles: Path, only, device, batch_size, keep_going, dry, images=None):
+    todo = [t for t in all_tiles(tiles) if (not only or t.name in only)
+            and (not images or t.parent.name in images)]
+    if images and not todo:
+        raise SystemExit(f"--images not found below {tiles}: {images}")
     if only and len({t.name for t in todo}) != len(set(only)):
         raise SystemExit(f"--only names not found: {sorted(set(only) - {t.name for t in todo})}")
     done = 0
@@ -326,6 +330,8 @@ def main(argv=None):
     r = sub.add_parser("run")
     r.add_argument("--tiles", required=True)
     r.add_argument("--only", nargs="+", default=None, help="tile names, e.g. tile_0003")
+    r.add_argument("--images", nargs="+", default=None,
+                   help="batch layout: image folders to run, e.g. image_0001 image_0002")
     r.add_argument("--device", default=None)
     r.add_argument("--batch-size", type=int, default=8)
     r.add_argument("--keep-going", action="store_true")
@@ -345,7 +351,7 @@ def main(argv=None):
     if a.cmd == "prepare":
         prepare(root, Path(a.source), Path(a.dest), a.set)
     elif a.cmd == "run":
-        run(root, Path(a.tiles), a.only, a.device, a.batch_size, a.keep_going, a.dry_run)
+        run(root, Path(a.tiles), a.only, a.device, a.batch_size, a.keep_going, a.dry_run, a.images)
     elif a.cmd == "status":
         status(Path(a.tiles))
     else:

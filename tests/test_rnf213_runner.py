@@ -1,4 +1,4 @@
-"""tools/rnf213_port_tiles.py: parallel tree preparation for the RNF213 layouts (no searches)."""
+"""tools/rnf213/rnf213_port_tiles.py: parallel tree preparation for the RNF213 layouts (no searches)."""
 
 import csv
 import hashlib
@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 spec = importlib.util.spec_from_file_location(
-    "rnf213_port_tiles", Path(__file__).resolve().parents[1] / "tools" / "rnf213_port_tiles.py")
+    "rnf213_port_tiles", Path(__file__).resolve().parents[1] / "tools" / "rnf213" / "rnf213_port_tiles.py")
 runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 
@@ -81,3 +81,6 @@ def test_prepare_batch_layout(tmp_path, monkeypatch):
     assert jobs[1]["configuration_sha256"] == hashlib.sha256(par.read_bytes()).hexdigest()
     assert "outputDir /work/batch_a_port/searches/image_0002/tile_0001/output" in par.read_text()
     assert os.path.samefile(d / "image_0001/tile_0001/tile_0001.mrc", s / "image_0001/tile_0001/tile_0001.mrc")
+    runner.main(["run", "--tiles", "batch_a_port/searches", "--images", "image_0002", "--dry-run"])
+    with pytest.raises(SystemExit):
+        runner.main(["run", "--tiles", "batch_a_port/searches", "--images", "image_0099", "--dry-run"])

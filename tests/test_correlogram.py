@@ -1,4 +1,4 @@
-"""tools/rnf213_correlogram.py on a synthetic port run: files, coordinates, never overwrite."""
+"""tools/rnf213/rnf213_correlogram.py on a synthetic port run: files, coordinates, never overwrite."""
 
 import csv
 import importlib.util
@@ -10,11 +10,11 @@ from smap.search_global import main
 from synthetic import make_tile, write_par
 
 spec = importlib.util.spec_from_file_location(
-    "rnf213_correlogram", Path(__file__).resolve().parents[1] / "tools" / "rnf213_correlogram.py")
+    "rnf213_correlogram", Path(__file__).resolve().parents[1] / "tools" / "rnf213" / "rnf213_correlogram.py")
 corr = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(corr)
 spec2 = importlib.util.spec_from_file_location(
-    "rnf213_landscape", Path(__file__).resolve().parents[1] / "tools" / "rnf213_landscape.py")
+    "rnf213_landscape", Path(__file__).resolve().parents[1] / "tools" / "rnf213" / "rnf213_landscape.py")
 land = importlib.util.module_from_spec(spec2)
 spec2.loader.exec_module(land)
 

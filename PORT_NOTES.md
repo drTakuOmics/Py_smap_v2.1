@@ -32,8 +32,8 @@ Full-image maps (on by default, `write_mip 0` disables; they do not change any v
 `search_mip_scaled.mrc` (its pixelwise z-score; equals `search_vals.mrc` wherever v2.1 kept a
 value, i.e. raw CC > `arbThr`), `search_mip_qInds.mrc`, `search_mip_dfInds.mrc` and
 `search_pval.mrc` (−ln p, anisotropic-Gaussian p-value of Zhang et al., IUCrJ 2025, computed
-over the kept region; `smap/pvalue.py`, same computation as Leopard-EM, |Δ| < 1e-3 on test
-data). `particles.csv` gains `neg_log_p_search`. v2.1 keeps flat-fielded values only above
+over the kept region; `smap/pvalue.py`, implemented from the method's equations in
+whitened-sector form, `tests/test_pvalue_mip.py`). `particles.csv` gains `neg_log_p_search`. v2.1 keeps flat-fielded values only above
 `arbThr`, so a complete MIP / p-value map was not available before.
 
 Array convention: Python axis k = MATLAB dimension k+1 (images `[row, col]`, volumes
@@ -123,6 +123,14 @@ projection of the original at M·R·M (M = reflection), so handedness is invisib
 projection (`tests/test_decoy.py`, NCC > 0.99999). On RNF213 tile_0003 the mirror run found
 11 candidates at final SNR 8.7–11.7, i.e. the same particles. For identity, the omitted-domain
 (anchor) searches with reconstruction of the omitted density are the stronger control.
+Enantiomer controls remain valid for **3-D** template searches in reconstructions or
+tomograms (e.g. the `mirror_flag` of SMAP's search_3D), where hand is resolved; only the 2-D
+projection search is blind to it.
+
+`tools/make_decoy_model.py` trims a decoy mmCIF to the searched template's atom count (whole
+residues, ellipsoid in the target's principal-axis proportions, or sphere) and reports atoms
+per residue: models with truncated side chains (< 7 atoms/residue, common for 4 Å maps) give
+a weaker potential and under-estimate false positives unless completed first.
 
 ## RELION / cryoSPARC export (`smap.export`)
 

@@ -17,8 +17,8 @@ Outputs (never overwritten): landscape.{png,pdf,svg,json} (3-D landscape + top v
 landscape_candidates.csv.
 
 usage (project root, port environment):
-  python ../Py_smap_v2.1/tools/rnf213_landscape.py --tree tiles_3p8_port --out figures/landscape_3p8
-  python ../Py_smap_v2.1/tools/rnf213_landscape.py --tree batch_noE3_30_port/searches/image_0001 \\
+  python ../Py_smap_v2.1/tools/rnf213/rnf213_landscape.py --tree tiles_3p8_port --out figures/landscape_3p8
+  python ../Py_smap_v2.1/tools/rnf213/rnf213_landscape.py --tree batch_noE3_30_port/searches/image_0001 \\
          --label "E3/CTD-omitted anchor" --out figures/landscape_anchor_img0001
 """
 

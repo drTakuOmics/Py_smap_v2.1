@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="360" viewBox="0 0 1120 360" font-family="DejaVu Sans, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6b6b6b"/>
+    </marker>
+    <style>
+      .box{fill:#ffffff;stroke:#8a8a8a;stroke-width:1.3}
+      .in{fill:#f4f1ea;stroke:#8a8a8a;stroke-width:1.3}
+      .gpu{fill:#eaf2f9;stroke:#2878B5;stroke-width:1.6}
+      .new{fill:#fdf3e4;stroke:#D18A20;stroke-width:1.6}
+      .t{font-size:13px;fill:#222}
+      .s{font-size:11px;fill:#555}
+      .h{font-size:11px;fill:#2878B5;font-weight:bold;letter-spacing:.5px}
+      .hn{font-size:11px;fill:#b06f10;font-weight:bold;letter-spacing:.5px}
+      .ln{stroke:#6b6b6b;stroke-width:1.4;fill:none;marker-end:url(#ar)}
+    </style>
+  </defs>
+  <rect width="1120" height="360" fill="#ffffff"/>
+
+  <!-- image path -->
+  <rect class="in" x="20" y="30" width="170" height="64" rx="8"/>
+  <text class="t" x="105" y="57" text-anchor="middle">Micrograph / tile</text>
+  <text class="s" x="105" y="76" text-anchor="middle">motion-corrected .mrc</text>
+  <path class="ln" d="M190,62 H228"/>
+  <rect class="box" x="230" y="30" width="200" height="64" rx="8"/>
+  <text class="t" x="330" y="57" text-anchor="middle">Whitening + CTF stack</text>
+  <text class="s" x="330" y="76" text-anchor="middle">PSD filter · D defocus planes</text>
+
+  <!-- template path -->
+  <rect class="in" x="20" y="150" width="170" height="64" rx="8"/>
+  <text class="t" x="105" y="177" text-anchor="middle">Atomic model</text>
+  <text class="s" x="105" y="196" text-anchor="middle">.cif / .pdb (full or partial)</text>
+  <path class="ln" d="M190,182 H228"/>
+  <rect class="box" x="230" y="150" width="200" height="64" rx="8"/>
+  <text class="t" x="330" y="177" text-anchor="middle">Scattering potential</text>
+  <text class="s" x="330" y="196" text-anchor="middle">SP volume (.mrc)</text>
+  <path class="ln" d="M330,214 V246"/>
+  <rect class="box" x="230" y="248" width="200" height="64" rx="8"/>
+  <text class="t" x="330" y="275" text-anchor="middle">Fourier-slice templates</text>
+  <text class="s" x="330" y="294" text-anchor="middle">Q orientations (e.g. 289k at 3.8°)</text>
+
+  <!-- correlation -->
+  <path class="ln" d="M430,62 H470 V140 H486"/>
+  <path class="ln" d="M430,280 H470 V178 H486"/>
+  <rect class="gpu" x="488" y="118" width="190" height="84" rx="8"/>
+  <text class="h" x="583" y="138" text-anchor="middle">GPU · PyTorch</text>
+  <text class="t" x="583" y="160" text-anchor="middle">Cross-correlation</text>
+  <text class="s" x="583" y="178" text-anchor="middle">batched FFTs, all Q × D</text>
+  <text class="s" x="583" y="193" text-anchor="middle">running mean / SD / max</text>
+
+  <path class="ln" d="M678,160 H708"/>
+  <rect class="box" x="710" y="118" width="190" height="84" rx="8"/>
+  <text class="t" x="805" y="148" text-anchor="middle">Flat-fielded z-score</text>
+  <text class="s" x="805" y="168" text-anchor="middle">pixelwise (CC − mean) / SD</text>
+  <text class="s" x="805" y="185" text-anchor="middle">threshold √2·erfc⁻¹(2/N)</text>
+
+  <path class="ln" d="M900,160 H930"/>
+  <rect class="box" x="932" y="118" width="170" height="84" rx="8"/>
+  <text class="t" x="1017" y="148" text-anchor="middle">Refine + optimise</text>
+  <text class="s" x="1017" y="168" text-anchor="middle">defocus, angles, shift</text>
+  <text class="s" x="1017" y="185" text-anchor="middle">final SNR per particle</text>
+
+  <!-- outputs -->
+  <path class="ln" d="M1017,202 V236"/>
+  <rect class="box" x="900" y="238" width="202" height="74" rx="8"/>
+  <text class="t" x="1001" y="263" text-anchor="middle">v2.1 outputs</text>
+  <text class="s" x="1001" y="282" text-anchor="middle">particles.txt / .par / .mrc</text>
+  <text class="s" x="1001" y="298" text-anchor="middle">list_final.txt · search_*.mrc</text>
+
+  <path class="ln" d="M805,202 V236"/>
+  <rect class="new" x="488" y="238" width="398" height="74" rx="8"/>
+  <text class="hn" x="687" y="258" text-anchor="middle">NEW IN THE PORT</text>
+  <text class="s" x="687" y="278" text-anchor="middle">full z-score / MIP / p-value maps · correlograms · decoy FDR</text>
+  <text class="s" x="687" y="296" text-anchor="middle">RELION / cryoSPARC STAR · provenance JSON · compare tool</text>
+
+  <text class="s" x="20" y="342">Same algorithm and outputs as SMAP v2.1 (MATLAB); optional improvements are .par keys that default to v2.1 behaviour.</text>
+</svg>

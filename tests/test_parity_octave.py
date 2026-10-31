@@ -101,7 +101,7 @@ def test_assign_jobs(ref):
 
 
 def test_params_file(ref):
-    par = Path(__file__).resolve().parents[1] / "sample_search.par"
+    par = Path(__file__).resolve().parents[1] / "examples" / "ribosome_in_situ" / "sample_search.par"
     p, _ = io.read_params_file(par)
     close(p["defocus"], ref["par_defocus"].ravel())
     assert p["aPerPix"] == ref["par_aPerPix"].item()

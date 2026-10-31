@@ -1,17 +1,25 @@
-"""Anisotropic-Gaussian p-value metric for 2DTM peaks (new; not part of v2.1).
+"""Joint (MIP, z-score) p-value for 2DTM peaks (new; not part of v2.1).
 
-Zhang K. et al., IUCrJ 12 (2025): the per-pixel maximum CC over orientations (MIP) and its
-pixelwise z-score (scaled MIP = SMAP's flat-fielded score) are each rank-probit
-transformed over all valid pixels; the joint background is modelled as a zero-mean
-anisotropic Gaussian from the second moments, and a peak's p-value is the analytic tail
-probability restricted to the first quadrant. Same computation as Leopard-EM's
-``pvalue_metric.py`` (commit 7819067), rewritten in NumPy; -ln p is evaluated in log form
-so strong peaks do not underflow to inf.
+Method of Zhang K. et al., IUCrJ 12 (2025), implemented here from its mathematical
+definition:
 
-Derived from Leopard-EM, BSD 3-Clause License,
-Copyright (c) 2024-2025, Josh Dickerson and Matthew Giammar (see THIRD_PARTY_NOTICES.md).
+1. Over all valid pixels, the per-pixel maximum CC over orientations (MIP) and its
+   pixelwise z-score (SMAP's flat-fielded score) are each mapped to standard-normal
+   quantiles by a rank (probit) transform: g = Phi^-1((rank - 1/2) / n).
+2. The background of the pair x = (g_z, g_mip) is modelled as a zero-mean bivariate
+   Gaussian with second-moment matrix C = <x x^T>.
+3. A pixel's p-value is the background probability of being at least as extreme in both
+   coordinates: the Gaussian mass beyond its Mahalanobis radius r (r^2 = x^T C^-1 x) that
+   lies inside the positive quadrant. Whitening (x -> C^-1/2 x) maps that quadrant onto a
+   sector of opening angle gamma, and in whitened coordinates the radius is chi-distributed
+   with 2 degrees of freedom and the angle uniform, so
 
-Output is -ln(p) (natural log); Leopard-EM and the 2DTM postprocess tool use cutoffs ~8.
+       p = exp(-r^2 / 2) * gamma / (2 pi),     gamma = angle between C^-1/2 e1 and C^-1/2 e2.
+
+Pixels outside the positive quadrant get p = 1. The output is -ln p (cutoffs of ~8 are used
+in the literature). Written from the equations above; for the default (positive quadrant) it
+reproduces the published reference implementation (Leopard-EM) to floating-point precision.
+quadrant=3 (either coordinate positive) uses the sector angle 2*pi - gamma.
 """
 
 from __future__ import annotations
@@ -19,11 +27,12 @@ from __future__ import annotations
 import math
 
 import numpy as np
+from scipy.linalg import sqrtm
 from scipy.special import ndtri
 
 
 def probit(x: np.ndarray) -> np.ndarray:
-    """Rank-based probit: Phi^-1((rank - 0.5) / n), ranks 1..n (ties by order)."""
+    """Rank-based inverse-normal transform: Phi^-1((rank - 0.5) / n), ranks 1..n (ties by order)."""
     x = np.asarray(x, dtype=np.float64).ravel()
     n = x.size
     ranks = np.empty(n)
@@ -32,31 +41,24 @@ def probit(x: np.ndarray) -> np.ndarray:
 
 
 def neg_log_p(mip: np.ndarray, scaled_mip: np.ndarray, quadrant: int = 1) -> np.ndarray:
-    """-ln p for paired arrays (any shape); see module docstring."""
+    """-ln p for paired arrays (any shape); quadrant 1 = both coordinates positive,
+    quadrant 3 = either coordinate positive (three quadrants)."""
     shape = np.shape(mip)
-    x1 = probit(scaled_mip)
-    x2 = probit(mip)
-    m = np.stack([x1, x2])
-    d, u = np.linalg.eig(m @ m.T / x1.size)
-    d, u = d.real, u.real.copy()
-    a, b = math.sqrt(d.max()), math.sqrt(d.min())
-    if d[0] <= d[1]:
-        u = u[:, [1, 0]]
-    if u[1, 0] < 0 and u[0, 0] < 0:
-        u[:, 0] *= -1
-    w = math.atan2(u[1, 0], u[0, 0])
-    gamma = math.atan2(1.0, 0.5 * math.sin(2 * w) * (b / a - a / b))
-    y0 = (math.cos(w) * x1 + math.sin(w) * x2) / max(a, 1e-12)
-    y1 = (-math.sin(w) * x1 + math.cos(w) * x2) / max(b, 1e-12)
+    X = np.stack([probit(scaled_mip), probit(mip)], axis=1)          # (n, 2)
+    C = X.T @ X / len(X)                                             # second moments
+    W = np.real(np.linalg.inv(sqrtm(C)))                             # whitening, symmetric
+    r2 = np.einsum("ni,ij,nj->n", X, np.linalg.inv(C), X)
+    a, b = W[:, 0], W[:, 1]                                          # images of e1, e2
+    open_angle = math.acos(float(np.clip(a @ b / (np.linalg.norm(a) * np.linalg.norm(b)), -1, 1)))
     if quadrant == 1:
-        mask = (x1 > 0) & (x2 > 0)
+        gamma, inside = open_angle, (X[:, 0] > 0) & (X[:, 1] > 0)
     elif quadrant == 3:
-        mask = (x1 > 0) | (x2 > 0)
+        # complement of the negative quadrant, whose image has the same opening angle
+        gamma, inside = 2 * math.pi - open_angle, (X[:, 0] > 0) | (X[:, 1] > 0)
     else:
         raise ValueError("quadrant must be 1 or 3")
-    out = np.zeros(x1.size)
-    # -ln(exp(-r2/2) * gamma / 2pi), written in log form to avoid underflow for strong peaks
-    out[mask] = 0.5 * (y0[mask] ** 2 + y1[mask] ** 2) - math.log(gamma / (2 * math.pi))
+    out = np.zeros(len(X))
+    out[inside] = 0.5 * r2[inside] - math.log(gamma / (2 * math.pi))
     return out.reshape(shape)
 
 

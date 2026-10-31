@@ -1,28 +1,47 @@
-# Running the port on the RNF213 project (Linux GPU workstation)
+# RNF213 pilot: HRTM on purified single-particle micrographs
 
-Project root (the folder Docker mounts as `/work`): `~/Documents/RNF213-2DTM/rnf213-2dtm`.
-Keep this repository outside the project, e.g. `~/Documents/RNF213-2DTM/Py_smap_v2.1`.
-No Docker, no sudo. The v2.1 tile trees are never modified.
+**What this is.** A pilot of 2D high-resolution template matching on cryo-EM micrographs of
+*purified* RNF213 (EMPIAR-10711, 4092 × 5760 px, 1.072 Å/px), not on cells. The full template is
+the RNF213:UBE2L3 model (PDB 7OIK); partial templates (domain-omitted "anchors", spherical
+fragments) test whether detections recover density that the template did not contain. Reference
+picks (`refined_particles.star`) from the single-particle analysis are used only to count
+positional matches. Results are in [results/](results) and in the main [README](../../README.md).
+
+**Data and scripts** live in the RNF213 project on the GPU workstation
+(`~/Documents/RNF213-2DTM/rnf213-2dtm`, the folder Docker mounted as `/work` for v2.1). The
+original workflow scripts (`rnf213_workflow_v3.py`, `rnf213_review.py`, `rnf213_batch_review.py`,
+…) read the port's output unchanged. The port's helpers for this project are in
+[`tools/rnf213/`](../../tools/rnf213). Keep this repository next to the project
+(`~/Documents/RNF213-2DTM/Py_smap_v2.1`); v2.1 tile trees are never modified.
 
 ## Install (once)
 
 ```bash
 cd ~/Documents/RNF213-2DTM
 git clone https://github.com/drTakuOmics/Py_smap_v2.1.git      # or: git -C Py_smap_v2.1 pull
-source <the venv you use for rnf213_workflow_v3.py>/bin/activate
+conda create -n pysmap -c conda-forge --override-channels python=3.11 -y && conda activate pysmap
+pip install torch --index-url https://download.pytorch.org/whl/cu128   # driver 570 / CUDA 12.8
 pip install -e "Py_smap_v2.1[test]"
 python Py_smap_v2.1/tools/gpu_smoke.py        # CUDA vs CPU on a synthetic tile; must print PASSED
 ```
 
-If `gpu_smoke.py` reports that CUDA is unavailable, the installed PyTorch wheel does not
-match the NVIDIA driver; check `nvidia-smi` (driver / CUDA version) and install the matching
-wheel from pytorch.org.
+## Results so far
+
+| Run | Tile 0003 (3.8°, full template) |
+|---|---|
+| SMAP v2.1 (MATLAB, Docker) | 13 refined candidates, 11 with final SNR ≥ 8 |
+| Port, v2.1 mode | same 13 candidates, max \|Δ final SNR\| 0.014, 244 s on an RTX 3090 |
+| Port, `refine_continuous 1` + `refine_local_peak 20` | same 13, all higher (mean +0.31), 11 ≥ 8, 371 s |
+| Port, mirror template | 11 candidates at 8.7–11.7: the same particles (a mirror is not a 2D decoy) |
+
+Scores per candidate: [results/tile0003_final_scores.csv](results/tile0003_final_scores.csv).
+In progress: the 21-image E3-omitted anchor batch (`batch_noE3_30`, 1134 tiles) with the port.
 
 ## One tile, v2.1 mode and improved mode
 
 ```bash
 cd ~/Documents/RNF213-2DTM/rnf213-2dtm
-T=../Py_smap_v2.1/tools/rnf213_port_tiles.py
+T=../Py_smap_v2.1/tools/rnf213/rnf213_port_tiles.py
 python $T prepare --source tiles_3p8 --dest tiles_3p8_port
 python $T prepare --source tiles_3p8 --dest tiles_3p8_plus --set refine_continuous=1 --set refine_local_peak=20
 python $T run --tiles tiles_3p8_port --only tile_0003 --device cuda
@@ -52,14 +71,16 @@ the existing `review_current` first if you want to keep it.
 
 Batch layout: `--source batch_noE3_3/searches --dest batch_noE3_3_port/searches`; jobs.csv is
 re-pointed, so `rnf213_batch_review.py --batch batch_noE3_3_port` reads the port outputs.
+Each tile keeps its own search.par, so a partial-template (anchor) batch is searched with the
+same anchor model. `run --images image_0001 image_0002` restricts a batch run to some images.
 
-## Z-score correlograms (Leopard-EM / HRTM style)
+## Z-score correlograms (2DTM / HRTM style)
 
 ```bash
-python ../Py_smap_v2.1/tools/rnf213_correlogram.py --tile tiles_3p8_port/tile_0003 \
+python ../Py_smap_v2.1/tools/rnf213/rnf213_correlogram.py --tile tiles_3p8_port/tile_0003 \
        --reference refined_particles.star --out figures/correlogram_tile0003
 # full vs partial template on the same region (shared z scale):
-python ../Py_smap_v2.1/tools/rnf213_correlogram.py --tile tiles_3p8_port/tile_0003 \
+python ../Py_smap_v2.1/tools/rnf213/rnf213_correlogram.py --tile tiles_3p8_port/tile_0003 \
        --compare <partial-template port tile> --compare-label "E3/CTD-omitted anchor" --out figures/corr_full_vs_anchor
 ```
 
@@ -70,17 +91,26 @@ Whole micrograph in one 3-D space (all port-searched sections stitched, candidat
 across overlaps within 20 px and labelled "id: final SNR"):
 
 ```bash
-python ../Py_smap_v2.1/tools/rnf213_landscape.py --tree tiles_3p8_port --out figures/landscape_3p8
+python ../Py_smap_v2.1/tools/rnf213/rnf213_landscape.py --tree tiles_3p8_port --out figures/landscape_3p8
 ```
 
 ## Target–decoy and STAR export
 
 The decoy is a different protein of similar mass and size (not a mirror image; see
-PORT_NOTES). Put its model in the project and point the decoy tree at it:
+PORT_NOTES). Build it matched to the template that was searched (atom count = SMAP mass,
+principal-axis proportions) and check side-chain completeness in the report:
+
+```bash
+python ../Py_smap_v2.1/tools/make_decoy_model.py --decoy decoy/8DYU.cif \
+       --match <anchor or full-template CIF that was searched> --out decoy/8DYU_matched
+```
+
+Then point the decoy tree at the written CIF:
 
 ```bash
 python $T prepare --source tiles_3p8 --dest tiles_3p8_decoy \
-       --set structureFile=/work/decoy/DECOY.cif --set modelFile=/work/decoy/DECOY.cif --set decoy_label=DECOY_NAME
+       --set structureFile=/work/decoy/8DYU_matched.cif --set modelFile=/work/decoy/8DYU_matched.cif \
+       --set decoy_label=8DYU_matched
 python $T run --tiles tiles_3p8_decoy --only tile_0003 --device cuda
 python -m smap.decoy --pair tiles_3p8_port/tile_0003/output tiles_3p8_decoy/tile_0003/output --cutoff 8 --out decoy_tile0003
 python -m smap.export rnf213 tiles_3p8_port/review/merged/all_candidates_registration.csv \

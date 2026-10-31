@@ -10,6 +10,23 @@ from smap.search_global import combine, prepare, run_job
 from synthetic import make_tile, write_par
 
 
+def test_whitened_sector_formula():
+    """p = exp(-r^2/2) gamma/2pi equals the Gaussian mass beyond r inside the quadrant."""
+    rng = np.random.default_rng(4)
+    C = np.array([[1.0, 0.6], [0.6, 1.0]])
+    L = np.linalg.cholesky(C)
+    s = rng.standard_normal((400000, 2)) @ L.T
+    Ci = np.linalg.inv(C)
+    for x in ([1.5, 2.0], [2.5, 1.0]):
+        x = np.array(x)
+        r2 = x @ Ci @ x
+        mc = np.mean((s[:, 0] > 0) & (s[:, 1] > 0) & (np.einsum("ni,ij,nj->n", s, Ci, s) >= r2))
+        W = np.linalg.inv(np.linalg.cholesky(C))           # any whitening gives the same angle
+        a, b = W[:, 0], W[:, 1]
+        g = np.arccos(a @ b / np.linalg.norm(a) / np.linalg.norm(b))
+        assert abs(np.exp(-r2 / 2) * g / (2 * np.pi) - mc) < 3e-3
+
+
 def test_probit_and_noise_tail():
     rng = np.random.default_rng(1)
     x = rng.standard_normal(5000)

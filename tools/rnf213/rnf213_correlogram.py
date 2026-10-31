@@ -8,7 +8,7 @@ before refinement) and optionally search_pval.mrc (-ln p) or search_mip.mrc (raw
 Figures (PNG 300 dpi + PDF + SVG, JSON sidecar; an existing --out is never overwritten):
   overview          top view of the whole tile: z-score heatmap, cutoff contour, numbered
                     candidates (reference picks / matches if --reference is given)
-  candidate_NN      one candidate: 3-D z-score landscape (Leopard-EM / HRTM style) with a
+  candidate_NN      one candidate: 3-D z-score landscape (2DTM / HRTM style) with a
                     translucent cutoff plane and a projected floor map, the top view with
                     the cutoff contour, and x/y profiles through the peak. With --compare,
                     a second row shows the same micrograph region from another search
@@ -21,7 +21,7 @@ conversion as rnf213_workflow_v3.py (search-grid centre, aPerPix_search / aPerPi
 tile offset from tile_offsets.csv -> micrograph x/y (px) -> Angstrom (x aPerPix).
 
 usage (from the project root, port environment):
-  python ../Py_smap_v2.1/tools/rnf213_correlogram.py --tile tiles_3p8_port/tile_0003 \\
+  python ../Py_smap_v2.1/tools/rnf213/rnf213_correlogram.py --tile tiles_3p8_port/tile_0003 \\
          [--label "Full RNF213"] [--compare batch_noE3_3_port/searches/image_0001/tile_0003 \\
          --compare-label "E3/CTD-omitted anchor"] [--cutoff 8] [--window 250] \\
          [--reference refined_particles.star] [--metric z|pval] --out figures/correlogram_tile0003
