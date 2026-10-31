@@ -87,29 +87,28 @@ def apply_path_map(params: dict, path_map) -> dict:
 
 def apply_decoy(params: dict, out_dir: Path, log) -> None:
     """OPTIONS for target-decoy calibration (see smap.decoy). Decoy inputs are written to
-    the output folder and substituted for modelFile / imageFile, so every later stage
-    (search, refinement, optimisation) uses them consistently.
+    the output folder and substituted for imageFile, so every later stage (search,
+    refinement, optimisation) uses them consistently.
 
-    ``decoy_template mirror``  enantiomer of the scattering potential (z axis reflected
-        about the SMAP centre voxel): same size, mass and spectrum, wrong hand.
+    Template decoy: search with a *different protein* of similar mass and size, by pointing
+    structureFile/modelFile at its model, and name it with ``decoy_label TEXT`` (recorded
+    in search_status.json). A mirror-image (enantiomer) template is NOT a decoy: every
+    projection of the mirrored volume at rotation R equals the projection of the original
+    at M R M (M = reflection), so it matches true particles as well as the target does
+    (tests/test_decoy.py). ``decoy_template mirror`` is therefore rejected.
+
     ``decoy_image phase_random`` (``decoy_seed S``)  image with randomised Fourier phases
         and the original amplitudes: same power spectrum, no particles.
     """
     params["decoy"] = None
     mode_t = (params.get("decoy_template") or "").strip().lower()
     mode_i = (params.get("decoy_image") or "").strip().lower()
+    label = (params.get("decoy_label") or "").strip()
     if mode_t:
-        if mode_t != "mirror":
-            raise ValueError(f"decoy_template must be 'mirror', got {mode_t!r}")
-        spv = sio.mr(params["modelFile"])
-        n = spv.shape[2]
-        mir = np.flip(spv, axis=2)
-        if n % 2 == 0:            # keep voxel cp = n//2+1 fixed: j = (2*(cp-1) - i) mod n
-            mir = np.roll(mir, 1, axis=2)
-        fn = out_dir / (Path(params["modelFile"]).stem + "_decoy_mirror.mrc")
-        sio.mw(np.ascontiguousarray(mir), fn, params["aPerPix"])
-        params["modelFile"] = str(fn)
-        _log(log, f"DECOY: mirrored (enantiomer) template -> {fn.name}")
+        raise ValueError(
+            "decoy_template is no longer supported: a mirror-image template gives exactly the "
+            "projections of the original (hand is invisible in a projection). Use a different "
+            "protein as structureFile/modelFile and set decoy_label instead.")
     if mode_i:
         if mode_i != "phase_random":
             raise ValueError(f"decoy_image must be 'phase_random', got {mode_i!r}")
@@ -124,9 +123,10 @@ def apply_decoy(params: dict, out_dir: Path, log) -> None:
         sio.mw(out.astype(np.float32), fn, params["aPerPix"])
         params["imageFile"] = str(fn)
         _log(log, f"DECOY: phase-randomised image -> {fn.name}")
-    if mode_t or mode_i:
-        params["decoy"] = dict(template=mode_t or None, image=mode_i or None,
-                               seed=int(params.get("decoy_seed") or 0))
+    if label or mode_i:
+        params["decoy"] = dict(template=label or None, image=mode_i or None,
+                               seed=int(params.get("decoy_seed") or 0),
+                               model=str(params.get("structureFile") or params.get("modelFile")))
 
 
 def prepare(params_file: str | Path, device=None, write_files: bool = True,

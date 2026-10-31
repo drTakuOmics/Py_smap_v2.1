@@ -53,10 +53,27 @@ the existing `review_current` first if you want to keep it.
 Batch layout: `--source batch_noE3_3/searches --dest batch_noE3_3_port/searches`; jobs.csv is
 re-pointed, so `rnf213_batch_review.py --batch batch_noE3_3_port` reads the port outputs.
 
-## Target–decoy and STAR export
+## Z-score correlograms (Leopard-EM / HRTM style)
 
 ```bash
-python $T prepare --source tiles_3p8 --dest tiles_3p8_decoy --set decoy_template=mirror
+python ../Py_smap_v2.1/tools/rnf213_correlogram.py --tile tiles_3p8_port/tile_0003 \
+       --reference refined_particles.star --out figures/correlogram_tile0003
+# full vs partial template on the same region (shared z scale):
+python ../Py_smap_v2.1/tools/rnf213_correlogram.py --tile tiles_3p8_port/tile_0003 \
+       --compare <partial-template port tile> --compare-label "E3/CTD-omitted anchor" --out figures/corr_full_vs_anchor
+```
+
+Overview (tile top view), one figure per candidate (3-D landscape, top view with the cutoff
+contour, x/y profiles), a gallery of all candidates, `candidates.csv`; PNG/PDF/SVG + JSON.
+
+## Target–decoy and STAR export
+
+The decoy is a different protein of similar mass and size (not a mirror image; see
+PORT_NOTES). Put its model in the project and point the decoy tree at it:
+
+```bash
+python $T prepare --source tiles_3p8 --dest tiles_3p8_decoy \
+       --set structureFile=/work/decoy/DECOY.cif --set modelFile=/work/decoy/DECOY.cif --set decoy_label=DECOY_NAME
 python $T run --tiles tiles_3p8_decoy --only tile_0003 --device cuda
 python -m smap.decoy --pair tiles_3p8_port/tile_0003/output tiles_3p8_decoy/tile_0003/output --cutoff 8 --out decoy_tile0003
 python -m smap.export rnf213 tiles_3p8_port/review/merged/all_candidates_registration.csv \

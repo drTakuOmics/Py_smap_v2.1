@@ -12,8 +12,8 @@ requires-python = ">=3.10"
 dependencies = ["numpy", "scipy", "mrcfile", "torch"]
 
 [project.optional-dependencies]
-test = ["pytest"]
-dev = ["pytest", "ruff"]
+test = ["pytest", "matplotlib"]
+dev = ["pytest", "ruff", "matplotlib"]
 
 [project.scripts]
 smap-search-global = "smap.search_global:main"

@@ -32,14 +32,14 @@ SEARCH_GLOBAL_DEFAULTS = dict(
     oversample=1, dedupe_orientations=0, template_bfactor=0, fix_even_grid=0,
     fix_pdb_short_lines=0, legacy_particle_diameter=1, fix_cluster_thresholds=0,
     fix_optimize_angle=0, refine_local_peak=0, refine_continuous=0, write_mip=1,
-    decoy_template=None, decoy_image=None, decoy_seed=0,
+    decoy_template=None, decoy_image=None, decoy_seed=0, decoy_label=None,
 )
 PATH_FIELDS = ("outputDir", "imageFile", "modelFile", "maskFile", "rotationsFile",
                "PDBFile", "structureFile")
 _SEARCH_GLOBAL_STRING_FIELDS = {
     "outputDir", "imageFile", "modelFile", "maskFile", "rotationsFile", "listFormat",
     "PDBFile", "chains", "modelName", "defocus_format", "structureFile",
-    "decoy_template", "decoy_image",
+    "decoy_template", "decoy_image", "decoy_label",
 }
 
 _NUM_TOKEN = re.compile(r"[,;\s]+")

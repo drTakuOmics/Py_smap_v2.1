@@ -101,7 +101,7 @@ coordinates).
 | `refine_local_peak R` | 0 | Final full-image peak in refinement searched within R search pixels of the particle (v2.1: anywhere in the image) |
 | `refine_continuous 1` | 0 | Stage C: one Nelder–Mead over rotation vector (3, deg), shift (2, px) and common defocus offset (1, nm) with initial steps inc_degrees/2, 0.5 px, 2·aPerPix nm, instead of v2.1's quaternion (4 params, one redundant) + shift with initial steps ≈0.03° and 0.025 px and no defocus. Refined defocus is written to particles.par/csv (`experiments/e4`) |
 | `write_mip 0` | 1 | Do not write the MIP / p-value maps |
-| `decoy_template mirror` | — | Search with the mirror image (enantiomer) of the potential: page axis reflected about the rotation centre. For target–decoy FDR (`smap.decoy`) |
+| `decoy_label TEXT` | — | Names the decoy model of a target–decoy run (a different protein given as structureFile/modelFile); recorded in search_status.json |
 | `decoy_image phase_random` | — | Search a phase-randomised copy of the image (same amplitude spectrum, `decoy_seed S`) |
 
 `df_inc` is an existing key: `experiments/e2` shows the 50 nm default loses on average
@@ -109,14 +109,20 @@ coordinates).
 
 ## Target–decoy calibration (`smap.decoy`)
 
-Run each tile twice with identical settings, the second time with `decoy_template mirror`
-(writes `<model>_decoy_mirror.mrc` in the output folder) and `--output-dir <tile>/output_decoy`.
+Run each tile twice with identical settings, the second time with a different protein of
+similar mass and size as structureFile/modelFile (same SP generation settings; check that a
+`chains` key does not filter it away) and `decoy_label NAME`.
 FDR(c) ≈ N_decoy(score ≥ c) / N_target(score ≥ c); q = running minimum from the top.
 `python -m smap.decoy --pair T D [--pair ...] --cutoff 8` writes `.json/.csv/.png/.pdf`.
-The mirror decoy keeps mass, size and spectrum; structures with near-mirror features still
-partly match their mirror, so it tends to over-estimate false positives. The phase-randomised
-image (`decoy_image phase_random`) removes all structure and tends to under-estimate false
-positives caused by real non-target density. Either doubles the search time.
+The phase-randomised image (`decoy_image phase_random`) removes all structure and tends to
+under-estimate false positives caused by real non-target density. Either doubles search time.
+
+A mirror-image (enantiomer) template is **not** a decoy and the earlier `decoy_template
+mirror` option was removed: every projection of the mirrored volume at rotation R equals the
+projection of the original at M·R·M (M = reflection), so handedness is invisible in a single
+projection (`tests/test_decoy.py`, NCC > 0.99999). On RNF213 tile_0003 the mirror run found
+11 candidates at final SNR 8.7–11.7, i.e. the same particles. For identity, the omitted-domain
+(anchor) searches with reconstruction of the omitted density are the stronger control.
 
 ## RELION / cryoSPARC export (`smap.export`)
 
@@ -142,8 +148,9 @@ model amplitude contrast (`F_abs 0`); the STAR uses `--amp-contrast` (default 0.
 * `test_compare_cli.py` — full CLI runs with Docker-style `/work` paths remapped: batch 1 vs
   batch 8 agree within the `smap.compare` tolerances; the comparison detects a 0.5 change in a
   final score; `run.log` contains the RNF213 completion lines; incomplete runs are not marked done.
-* `test_decoy.py` — mirror decoy keeps the rotation centre, phase randomisation keeps |F|,
-  FDR/q bookkeeping, target vs mirror-decoy runs through the CLI.
+* `test_decoy.py` — mirror-volume projections equal original projections at M·R·M (why the
+  mirror decoy was removed), phase randomisation keeps |F|, FDR/q bookkeeping, target vs
+  different-protein decoy runs through the CLI.
 * `test_export.py` — RELION Euler round trip, Frealign inverse, real-space projection check,
   STAR writer.
 * `test_pvalue_mip.py` — MIP maps equal v2.1's `search_vals.mrc` where v2.1 kept values; the

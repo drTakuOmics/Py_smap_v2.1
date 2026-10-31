@@ -14,19 +14,32 @@ def _log(*a, **k):
     pass
 
 
-def test_mirror_decoy_keeps_centre_voxel(tmp_path):
-    for n in (7, 8):
-        v = np.zeros((n, n, n), np.float32)
-        cp = n // 2
-        v[cp, cp, cp] = 5.0
-        v[cp, cp, cp + 2] = 1.0                       # off-centre marker along the page axis
-        sio.mw(v, tmp_path / f"v{n}.mrc", 1.0)
-        p = dict(modelFile=str(tmp_path / f"v{n}.mrc"), aPerPix=1.0, decoy_template="mirror")
-        apply_decoy(p, tmp_path, _log)
-        m = sio.mr(p["modelFile"])
-        assert m[cp, cp, cp] == 5.0                   # rotation centre unchanged
-        assert m[cp, cp, cp - 2] == 1.0               # page axis reflected about the centre
-        assert p["decoy"]["template"] == "mirror"
+def test_mirror_template_is_not_a_decoy(tmp_path):
+    """Why decoy_template mirror was removed: the projection of the mirrored volume at R is
+    exactly the projection of the original at M R M, so it matches true particles."""
+    import pytest
+    import torch
+    from scipy.spatial.transform import Rotation
+    from smap.search_global import _templates
+    from synthetic import N, volume
+    v = volume(np.random.default_rng(0)).astype(np.float64)
+    vm = np.roll(np.flip(v, axis=2), 1, axis=2)          # reflect the page axis about voxel N//2
+
+    def vf(x):
+        F = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(x)))
+        F[N // 2, N // 2, N // 2] = 0
+        return torch.as_tensor(F.real), torch.as_tensor(F.imag)
+    a = torch.arange(1, N + 1, dtype=torch.float64)
+    rr, cc = torch.meshgrid(a, a, indexing="ij")
+    cp = N // 2 + 1
+    M = np.diag([1.0, 1.0, -1.0])
+    for s in range(3):
+        R = Rotation.random(random_state=s).as_matrix()
+        tm = _templates(*vf(vm), torch.as_tensor(R[None]), cc - cp, rr - cp, cp)[0].numpy()
+        to = _templates(*vf(v), torch.as_tensor((M @ R @ M)[None]), cc - cp, rr - cp, cp)[0].numpy()
+        assert np.corrcoef(tm.ravel(), to.ravel())[0, 1] > 0.99999
+    with pytest.raises(ValueError, match="mirror-image template"):
+        apply_decoy(dict(decoy_template="mirror"), tmp_path, _log)
 
 
 def test_phase_random_image_keeps_amplitudes(tmp_path):
@@ -53,20 +66,24 @@ def test_fdr_and_q_values():
     assert qv[0] == 0 and qv[-1] == np.max(qv)
 
 
-def test_target_vs_mirror_decoy_pipeline(tmp_path):
+def test_target_vs_other_protein_decoy_pipeline(tmp_path):
     make_tile(tmp_path, 1500, 50, 95, snr=14.0, phase_scale=0.002)
+    # decoy: a different 'protein' with the same number of atoms, size and phase scale
+    from synthetic import volume
+    sio.mw(np.transpose(volume(np.random.default_rng(99)) * 0.002, (1, 2, 0)), tmp_path / "decoy.mrc", 2.0)
     common = ("function search_global\nnCores 1\n"
-              f"imageFile {tmp_path}/img.mrc\nstructureFile {tmp_path}/vol.mrc\n"
+              f"imageFile {tmp_path}/img.mrc\n"
               "aPerPix 2.0\ndefocus 15000.0 14000.0 30.0\nangle_inc 20\nT_sample 0\n"
               "arbThr 4.0\nmargin_pix 0\noptThr 5.0\ninc_degrees 2\n")
-    (tmp_path / "t.par").write_text(common + f"outputDir {tmp_path}/target\n")
-    (tmp_path / "d.par").write_text(common + f"outputDir {tmp_path}/decoy\ndecoy_template mirror\n")
+    (tmp_path / "t.par").write_text(common + f"structureFile {tmp_path}/vol.mrc\noutputDir {tmp_path}/target\n")
+    (tmp_path / "d.par").write_text(common + f"structureFile {tmp_path}/decoy.mrc\noutputDir {tmp_path}/decoy\n"
+                                    "decoy_label random atoms seed 99\n")
     assert main([str(tmp_path / "t.par"), "--device", "cpu", "--batch-size", "8"]) == 0
     assert main([str(tmp_path / "d.par"), "--device", "cpu", "--batch-size", "8"]) == 0
     st = json.loads((tmp_path / "decoy" / "search_status.json").read_text())
-    assert st["decoy"]["template"] == "mirror"
+    assert st["decoy"]["template"] == "random atoms seed 99"
 
-    # planted particle: final score ~7.2 at this SNR; mirror decoy tops out near 5.5
+    # planted particle: final score ~7.2 at this SNR; the other-protein decoy stays lower
     rep = calibrate([(tmp_path / "target", tmp_path / "decoy")], "final", report_cutoff=6.5)
     tmax = max(np.loadtxt(tmp_path / "target" / "particles.txt", ndmin=2)[:, 1])
     dmax = max(np.loadtxt(tmp_path / "decoy" / "particles.txt", ndmin=2)[:, 1])

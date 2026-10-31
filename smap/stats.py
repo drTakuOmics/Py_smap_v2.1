@@ -19,7 +19,7 @@ This module therefore works on clusters:
 * ``fit_neff``: c(x) ~= N_eff * Q(x) on the complete, well-populated range, giving the
   threshold for one expected false *cluster*.
 
-Fit N_eff on particle-free control searches (e.g. mirrored template or a particle-free
+Fit N_eff on particle-free control searches (e.g. a different protein of similar mass, or a particle-free
 area). On real images, true particles inflate c(x); the value written by combine() is
 informational only and is never used to select particles.
 """

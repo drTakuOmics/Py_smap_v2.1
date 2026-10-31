@@ -322,7 +322,7 @@ def main(argv=None):
     p.add_argument("--source", required=True)
     p.add_argument("--dest", required=True)
     p.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
-                   help="extra .par option, e.g. refine_continuous=1 or decoy_template=mirror")
+                   help="extra .par option, e.g. refine_continuous=1 or decoy_label=NAME")
     r = sub.add_parser("run")
     r.add_argument("--tiles", required=True)
     r.add_argument("--only", nargs="+", default=None, help="tile names, e.g. tile_0003")

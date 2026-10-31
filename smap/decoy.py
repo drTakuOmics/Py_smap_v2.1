@@ -1,17 +1,21 @@
 """Target-decoy calibration of the final SMAP score (new; not part of v2.1).
 
 Run the same search twice on the same image with identical settings: once normally
-(target) and once with a decoy (``decoy_template mirror`` or ``decoy_image phase_random``
-in the .par file). The decoy cannot contain true hits, so the number of decoy candidates
-at or above a cutoff estimates the number of false target candidates at that cutoff:
+(target) and once with a decoy: a *different protein* of similar mass and size as
+structureFile/modelFile (``decoy_label NAME`` records it), or ``decoy_image phase_random``.
+A mirror-image template is not a decoy (its projections equal the target's at M R M).
+If the decoy cannot produce true hits, the number of decoy candidates at or above a cutoff
+estimates the number of false target candidates at that cutoff:
 
     FDR(c) ~= N_decoy(score >= c) / N_target(score >= c)
     q(candidate) = min over c <= score of FDR(c)        (monotone, as in proteomics)
 
 Several tiles/images can be pooled (repeat --pair). The estimate assumes the decoy's noise
-behaves like the target's noise: the mirror template keeps size, mass and spectrum, the
-phase-randomised image keeps the power spectrum but removes all structure (so it tends to
-under-estimate false positives from real, non-target density). Report which decoy was used.
+behaves like the target's noise: a different protein should match mass and size (SNR scales
+with template signal) and share no domains with the target; the phase-randomised image keeps
+the power spectrum but removes all structure (so it tends to under-estimate false positives
+from real, non-target density). Report which decoy was used. For identity, omitted-domain
+(anchor) searches with reconstruction of the omitted density are the stronger control.
 
 usage:
     python -m smap.decoy --pair TARGET_OUT DECOY_OUT [--pair ...] [--score final|refined]

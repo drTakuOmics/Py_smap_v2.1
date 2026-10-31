@@ -37,8 +37,8 @@ Outputs keep the v2.1 names and formats (`list_final.txt`, `particles.{txt,par,m
 Additional tools (new, not in v2.1):
 
 ```bash
-# target-decoy FDR: run the same .par again with "decoy_template mirror" (or
-# "decoy_image phase_random") and compare final-score counts
+# target-decoy FDR: run the same .par again with a different protein of similar mass as
+# structureFile/modelFile (+ "decoy_label NAME"), or "decoy_image phase_random"
 python -m smap.decoy --pair <target_output> <decoy_output> --cutoff 8 --out decoy_calibration
 
 # RELION 3.1+/cryoSPARC particle STAR for baited reconstruction
@@ -48,6 +48,7 @@ python -m smap.export rnf213 all_candidates_registration.csv --par <tile>/search
 
 The search also writes full-image MIP maps and a p-value map (`search_mip*.mrc`,
 `search_pval.mrc`; anisotropic-Gaussian p-value of Zhang et al., IUCrJ 2025, as in Leopard-EM).
+`tools/rnf213_correlogram.py` draws z-score landscapes (Leopard-EM/HRTM style) from them.
 
 RNF213 project (existing v2.1 tile trees, unchanged review scripts): see
 [docs/RNF213_RUN.md](docs/RNF213_RUN.md) (`tools/rnf213_port_tiles.py`, `tools/gpu_smoke.py`).
