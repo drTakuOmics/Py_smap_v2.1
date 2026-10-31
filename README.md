@@ -1,5 +1,9 @@
 # Py_smap_v2.1
 
+[![High-resolution template matching: every projection against every pixel](docs/figures/hrtm_banner.png)](docs/hrtm_banner.html)
+
+<sub>The atomic model is projected at every orientation (template bank); each projection is compared with every pixel of the image. Peaks of the z-score map are particles, and the best-scoring projection gives the pose. Interactive version: [docs/hrtm_banner.html](docs/hrtm_banner.html) (download and open in a browser). Drawn with [Colorfigures](https://april-zhu.com/colorfigures) (MIT, April Zhu).</sub>
+
 **Open-source Python/PyTorch port of SMAP v2.1 — high-resolution template matching (HRTM) for
 cryo-EM images.**
 
@@ -157,7 +161,7 @@ tiles searched so far):
 | `tools/` | `gpu_smoke.py`, `make_decoy_model.py`, `gen_sf_table.py`; `tools/rnf213/`: tile runner, correlograms, micrograph landscape |
 | `tests/` | Octave-parity tests (references generated from the original MATLAB code), synthetic end-to-end, CLI and tool tests |
 | `experiments/` | small numerical studies behind the optional improvements |
-| `docs/` | upstream SMAP v2.1 README, figures |
+| `docs/` | upstream SMAP v2.1 README, figures, interactive banner (`hrtm_banner.html`) |
 | [`PORT_NOTES.md`](PORT_NOTES.md) | technical notes: status, flags, options, outputs, tests, 17 v2.1 behaviours found during the port |
 
 ## Citing
