@@ -1,6 +1,6 @@
 # Py_smap_v2.1
 
-[![High-resolution template matching: every projection against every pixel](docs/figures/hrtm_banner.png)](docs/hrtm_banner.html)
+[![High-resolution template matching: every projection against every pixel](docs/figures/hrtm_banner.gif)](docs/hrtm_banner.html)
 
 <sub>The atomic model is projected at every orientation (template bank); each projection is compared with every pixel of the image. Peaks of the z-score map are particles, and the best-scoring projection gives the pose. Interactive version: [docs/hrtm_banner.html](docs/hrtm_banner.html) (download and open in a browser). Drawn with [Colorfigures](https://april-zhu.com/colorfigures) (MIT, April Zhu).</sub>
 

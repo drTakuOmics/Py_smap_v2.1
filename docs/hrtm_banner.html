@@ -1,6 +1,7 @@
 <!doctype html>
 <!--
   Py_smap_v2.1 banner: high-resolution template matching, drawn with Colorfigures.
+  Plays the whole story on a 15 s loop until a button is pressed (?autoplay=0 turns that off).
   The figure code (scene, models, behaviour) is part of Py_smap_v2.1 (MIT).
   The inlined drawing engine (core.js) is Colorfigures, used under the MIT License:
 
@@ -704,21 +705,21 @@ function mountKeypad(spec){
        found model rising from the best peak.
      template bank (right): back wall with 12 projection cards (one orientation each); the atomic model on a post;
        rays model -> cards; links cards -> scanning template (the network of projections). */
-const hbW = 80, hbD = 232, hbH = 95;
-const COL = [34, 207];                                     // microscope column axis (x, y)
-const MS = z => 22 + (z - 34) * .6, MR = r => r * .6;      // microscope drawn at 0.6 scale on its console
-const MIC = { x0: 8, x1: 70, y0: 92, y1: 178, z: 5 };       // micrograph slab
-const NX = 22, NY = 30;                                     // height-field cells
-const WALL = { x0: 8, x1: 12, y0: 8, y1: 86, z1: 60 };      // template bank wall
-const MODEL0 = [60, 44, 30];                                // atomic model centre (on its post)
+const hbW = 86, hbD = 190, hbH = 80;
+const COL = [32, 170];                                     // microscope column axis (x, y)
+const MS = z => 20 + (z - 34) * .5, MR = r => r * .5;      // microscope drawn at half scale on its console
+const MIC = { x0: 10, x1: 72, y0: 80, y1: 146, z: 5 };      // micrograph slab
+const NX = 22, NY = 24;                                     // height-field cells
+const WALL = { x0: 8, x1: 12, y0: 4, y1: 70, z1: 62 };      // template bank wall
+const MODEL0 = [56, 12, 24];                                // atomic model centre (on its post)
 const COPPER = { l:'#e7a36b', m:'#c98551', d:'#7f4c26' };
 const DOMAIN = { narm:'#28b9d0', aaa:'#efa440', e3:'#9775cf', ctd:'#63b995', e2:'#edcf55', lsu:'#76a0e2', ssu:'#f4b829' };
 const hbRng = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(7);
 const NOISE = Array.from({length:(NX+1)*(NY+1)}, () => hbRng() - .5);
 // particles in the micrograph, in cell units (i along x, j along y), with their search z-score
 const PARTS = {
-  purified: [[14,14,11.8],[14,5.5,9.6],[6,10,9.3],[18,22,8.9],[5.5,19,9.0],[10,24,8.4],[17.5,26,9.2],[6.5,26,7.4],[10.5,7,7.1]],
-  cells:    [[13.5,14,9.4],[6.5,7,8.6],[9,24,8.1]] };
+  purified: [[14,11.2,11.8],[14,4.4,9.6],[6,8,9.3],[18,17.6,8.9],[5.5,15.2,9.0],[10,19.2,8.4],[17.5,20.8,9.2],[6.5,20.8,7.4],[10.5,5.6,7.1]],
+  cells:    [[13.5,11.2,9.4],[6.5,5.6,8.6],[9,19.2,8.1]] };
 const CUT = 8;                                              // detection cutoff (z-score)
 const hbRot = (a, b, c) => { const ca=Math.cos(a), sa=Math.sin(a), cb=Math.cos(b), sb=Math.sin(b), cc=Math.cos(c), sc=Math.sin(c);
   return [[ca*cc - sa*cb*sc, -ca*sc - sa*cb*cc, sa*sb], [sa*cc + ca*cb*sc, -sa*sc + ca*cb*cc, -ca*sb], [sb*sc, sb*cc, cb]]; };
@@ -741,10 +742,10 @@ function riboModel(){
 const modelOf = st => st.spec === 'cells' ? riboModel() : rnfModel();
 
 /* ---------- template bank: 12 orientations, evenly spread (spiral on the sphere) ---------- */
-const NCARD = 12, CARD_H = 7.2, CARD_W = 8.2;
+const NCARD = 12, CARD_H = 6.6, CARD_W = 6.9;
 const CARDS = Array.from({length:NCARD}, (_, k) => {
   const col = k % 4, row = Math.floor(k / 4);
-  return { y: 76 - col*19, z: 49 - row*17.5,
+  return { y: 62 - col*16, z: 53 - row*15.5,
            R: hbRot(k*2.39996, Math.acos(1 - 2*(k + .5)/NCARD), .7*k) };
 });
 const HITK = 6;                                             // the card whose orientation matches the best particle
@@ -767,7 +768,7 @@ function bankCards(st, m){
     s += glyph(st, c.R, (u, v) => [xF + .05, c.y + u, c.z + v], glyphScale(st));
     if (isOn) s += `<path d="${pd(on(PX(xF + .1), rrUV(c.y - CARD_W - 1, c.z - CARD_H - 1, c.y + CARD_W + 1, c.z + CARD_H + 1, 1.8)))}" fill="none" stroke="${m.l}" stroke-width="2.2"/>`;
   });
-  s += tx(xF, (WALL.y0 + WALL.y1)/2, WALL.z1 - 3.4, 'Q ORIENTATIONS  →  Q PROJECTIONS', 2.6, '#f2efe7', 700);
+  s += tx(xF, (WALL.y0 + WALL.y1)/2, WALL.z1 - 1.9, 'Q ORIENTATIONS  →  Q PROJECTIONS', 2.3, '#f2efe7', 700);
   return s;
 }
 function wall(){
@@ -782,7 +783,7 @@ function balls(list, alpha = 1){
       + `<circle cx="${f(X - R0*.22)}" cy="${f(Y - R0*.22)}" r="${f(R0*.6)}" fill="${mm.l}"/></g>`; }).join('');
 }
 function bankModel(st){
-  const [x, y, z] = MODEL0, R = modelRot(st), sc = st.spec === 'cells' ? 1.7 : 1.35;
+  const [x, y, z] = MODEL0, R = modelRot(st), sc = st.spec === 'cells' ? 1.7 : 1.3;
   const post = cyl(x, y, 3, 4.6, 4, DARK, toneI, 1, 18) + cyl(x, y, 4.6, z - 7, .9, METAL, toneI, 1, 12);
   return post + balls(modelOf(st).map(([mx, my, mz, r, c]) => { const q = hbMul(R, [mx, my, mz]); return [x + q[0]*sc, y + q[1]*sc, z + q[2]*sc, r*sc, c]; }));
 }
@@ -847,25 +848,25 @@ function column(st, m){
   return s;
 }
 function consoleBox(st, m){
-  const x0 = 12, x1 = 56, y0 = 188, y1 = 226, z0 = 3, z1 = 22;
+  const x0 = 14, x1 = 48, y0 = 154, y1 = 186, z0 = 3, z1 = 18;
   let s = box(x0, y0, z0, x1, y1, z1, m, tone, 1.2) + hullInk([[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]], 2.2);
   if (facing([1,0,0])){
-    s += shape(on(PX(x1 + .2), rrUV(191, 9, 211, 18.5, 1.2)), '#1d2a26', 1);                        // panel screen
+    s += shape(on(PX(x1 + .2), rrUV(157, 7.5, 175, 15.5, 1.1)), '#1d2a26', 1);                       // panel screen
     const live = st.beam > 0 && st.beam < 1 ? '#8af0ae' : '#3c5a4d';
-    s += line(on(PX(x1 + .3), [[193, 11.5], [197, 15], [200, 12.5], [204, 16.5], [209, 13]]), .8).replace(INK, live);
-    s += cylX(x1, x1 + 1.8, 216, 15, 1.6, DARK, toneI, .9) + cylX(x1, x1 + 1.8, 222, 15, 1.6, DARK, toneI, .9);
-    const lamp = on(PX(x1 + .3), ellUV(219, 7.5, 1.1, 1.1, 12));
+    s += line(on(PX(x1 + .3), [[159, 9.5], [162.5, 12.5], [165.5, 10.5], [169, 14], [173, 11]]), .8).replace(INK, live);
+    s += cylX(x1, x1 + 1.6, 179, 12.5, 1.4, DARK, toneI, .9) + cylX(x1, x1 + 1.6, 183.5, 12.5, 1.4, DARK, toneI, .9);
+    const lamp = on(PX(x1 + .3), ellUV(181.2, 6.5, 1, 1, 12));
     s += fill(pd(lamp), st.beam > 0 && st.beam < 1 ? '#43c25c' : '#7a8a80') + ink(pd(lamp), .7);
-    s += tx(x1 + .3, 201, 5, 'CRYO-TEM', 2.6, INK, 800);
+    s += tx(x1 + .3, 166, 4.3, 'CRYO-TEM', 2.2, INK, 800);
   }
   return s;
 }
 function holder(){
   const z = MS(84);
-  return rod([COL[0] + MR(11), COL[1], z], [50.5, COL[1], z], .9, METAL, toneI, .9) +
-         cyl(52, COL[1], z - 3, z + 7, 2.5, METAL, toneI, 1, 16) + cyl(52, COL[1], z + 7, z + 8.2, 1.5, DARK, toneI, .9, 12);
+  return rod([COL[0] + MR(11), COL[1], z], [44.5, COL[1], z], .8, METAL, toneI, .9) +
+         cyl(46, COL[1], z - 2.5, z + 6, 2.1, METAL, toneI, 1, 16) + cyl(46, COL[1], z + 6, z + 7, 1.3, DARK, toneI, .9, 12);
 }
-function hvCable(){ const a = [COL[0] - 3, COL[1] + 2, MS(141)], b = [COL[0] - 8, COL[1] + 8, MS(132)], c = [COL[0] - 10, COL[1] + 11, 22];
+function hvCable(){ const a = [COL[0] - 2.5, COL[1] + 1.5, MS(141)], b = [COL[0] - 7, COL[1] + 7, MS(132)], c = [COL[0] - 9, COL[1] + 10, 18];
   return rod(a, b, .55, DARK, toneI, .8) + rod(b, c, .55, DARK, toneI, .8); }
 function microscope(st, m){
   const k = ease(st.xr || 0);
@@ -897,7 +898,7 @@ function insides(st){
 
 /* ---------- data cable (detector -> image) ---------- */
 function cable(st){
-  const pts = [[30, 188, 4], [30, 182, 4], [34, 179.6, 4.2]];
+  const pts = [[30, 154, 4], [30, 150, 4], [34, 147.6, 4.2]];
   let s = '';
   for (let i = 0; i < pts.length - 1; i++) s += rod(pts[i], pts[i+1], .7, DARK, toneI, .8);
   if (st.beam > 0 && st.beam < 1){ const t = (st.beam * 3) % 1, a = pts[0], b = pts[1];
@@ -968,17 +969,17 @@ function links(st, m){
 function scene(st, m){
   let s = board(0, 0, hbW, hbD, 3, 6);
   const top = boardTop(0, 0, hbW, hbD, 3, 6);
-  s += castShadow([[12,188,22],[56,188,22],[56,226,22],[12,226,22],[12,188,3],[56,226,3],[COL[0]-4,COL[1]-4,MS(146)],[COL[0]+4,COL[1]+4,MS(146)]], 3, top);
+  s += castShadow([[14,154,18],[48,154,18],[48,186,18],[14,186,18],[14,154,3],[48,186,3],[COL[0]-3,COL[1]-3,MS(146)],[COL[0]+3,COL[1]+3,MS(146)]], 3, top);
   s += castShadow([[MIC.x0,MIC.y0,MIC.z],[MIC.x1,MIC.y0,MIC.z],[MIC.x1,MIC.y1,MIC.z],[MIC.x0,MIC.y1,MIC.z],[MIC.x0,MIC.y0,3],[MIC.x1,MIC.y1,3]], 3, top);
   s += castShadow([[WALL.x0,WALL.y0,WALL.z1],[WALL.x1,WALL.y0,WALL.z1],[WALL.x1,WALL.y1,WALL.z1],[WALL.x0,WALL.y1,WALL.z1],[WALL.x0,WALL.y0,3],[WALL.x1,WALL.y1,3]], 3, top);
   const slab = box(MIC.x0 - 1.5, MIC.y0 - 1.5, 3, MIC.x1 + 1.5, MIC.y1 + 1.5, MIC.z, DARK, toneI, 1.2);
   const front = facing([1,0,0]);
   const bank = front ? wall() + bankCards(st, m) + rays(st, m) + bankModel(st) : bankModel(st) + wall();
   const parts = [
-    { box:[[10,186.5,3],[57,228,90]], svg: microscope(st, m) },
-    { box:[[29,179.6,3],[35,187.9,6]], svg: cable(st) },
+    { box:[[12,152.5,3],[50,188,82]], svg: microscope(st, m) },
+    { box:[[29,147.6,3],[35,153.9,6]], svg: cable(st) },
     { box:[[MIC.x0-1.5,MIC.y0-1.5,3],[MIC.x1+1.5,MIC.y1+1.5,29]], svg: slab + field(st) + pins(st, m) + hullInk([[MIC.x0-1.5,MIC.y0-1.5,3],[MIC.x1+1.5,MIC.y0-1.5,3],[MIC.x1+1.5,MIC.y1+1.5,3],[MIC.x0-1.5,MIC.y1+1.5,3],[MIC.x0-1.5,MIC.y0-1.5,MIC.z],[MIC.x1+1.5,MIC.y1+1.5,MIC.z]], 2) },
-    { box:[[WALL.x0,6,3],[76,88,62]], svg: bank },
+    { box:[[WALL.x0,-4,3],[72,72,66]], svg: bank },
     { box:[[MIC.x0,MIC.y0,29.5],[MIC.x1,MIC.y1,80]], svg: templateCard(st, m) + foundModel(st) },
   ];
   s += byDepth(parts) + links(st, m);
@@ -992,7 +993,7 @@ function scene(st, m){
       { at:[MODEL0[0], MODEL0[1], MODEL0[2] + 8], text:'ATOMIC MODEL', on: scanOn },
     ], [0, hbW, 0, hbD, 0, hbH]);
   else {
-    s += tag([MODEL0[0], MODEL0[1], MODEL0[2] + 9], 52, -2, st.spec === 'cells' ? 'ATOMIC MODEL: LSU' : 'ATOMIC MODEL: RNF213', scanOn);
+    s += tag([MODEL0[0], MODEL0[1], MODEL0[2] + 11], 34, -40, st.spec === 'cells' ? 'ATOMIC MODEL: LSU' : 'ATOMIC MODEL: RNF213', scanOn);
     s += tag([WALL.x1, (WALL.y0 + WALL.y1)/2, WALL.z1], 0, -26, 'TEMPLATE BANK', scanOn);
     s += tag([(MIC.x0+MIC.x1)/2 + 10, MIC.y0 + 20, MIC.z + 1], 38, 34, st.scan > 0 ? 'Z-SCORE MAP' : 'MICROGRAPH', scanOn);
     s += tag([COL[0], COL[1], MS(146)], -16, -18, 'CRYO-TEM', st.beam > 0 && st.beam < 1);
@@ -1026,6 +1027,15 @@ function showHit(st){
   ui.animate(dt => { st.hit = Math.min(1, st.hit + dt/1.6); if (st.hit >= 1){ st.busy = false; return false; } return true; });
 }
 function reset(st){ Object.assign(st, { img:0, beam:0, scan:0, hit:0, busy:false }); }
+/* autoplay: the whole story on a 15 s loop until someone presses a button (also used to render the README animation) */
+const HB_LOOP = 15;
+function hbStateAt(T){
+  const t = ((T % HB_LOOP) + HB_LOOP) % HB_LOOP, c = v => Math.max(0, Math.min(1, v));
+  return { beam: c(t / 1.4), img: c((t - 1.4) / .7), scan: c((t - 2.6) / 7), hit: c((t - 10) / 1.6), busy:false };
+}
+const HB_Q = new URLSearchParams(location.search);
+let hbAuto = HB_Q.get('autoplay') !== '0' && !['img', 'beam', 'scan', 'hit', 'press'].some(k => HB_Q.has(k));
+function hbStop(st){ if (hbAuto){ hbAuto = false; reset(st); } }
 ui = mountFigure({
   fig:'01', turn:'full', title:'High-resolution template matching: every projection against every pixel',
   size:[hbW, hbD, hbH], center:[hbW/2, hbD/2], palette:'cobalt',
@@ -1033,12 +1043,12 @@ ui = mountFigure({
   scene,
   buttons:[
     { label:'Specimen', choices: st => [
-        { label:'Purified protein', current: st.spec === 'purified', disabled: st.busy, why:'wait for the current step', onClick: st => { st.spec = 'purified'; reset(st); } },
-        { label:'Cells (in situ)', current: st.spec === 'cells', disabled: st.busy, why:'wait for the current step', onClick: st => { st.spec = 'cells'; reset(st); } } ] },
-    { label:'Record image', onClick: st => record(st) },
-    { label:'Search', onClick: st => search(st) },
-    { label:'Show the hit', onClick: st => showHit(st) },
-    { label:'Reset', onClick: st => reset(st) },
+        { label:'Purified protein', current: st.spec === 'purified', disabled: st.busy, why:'wait for the current step', onClick: st => { hbStop(st); st.spec = 'purified'; reset(st); } },
+        { label:'Cells (in situ)', current: st.spec === 'cells', disabled: st.busy, why:'wait for the current step', onClick: st => { hbStop(st); st.spec = 'cells'; reset(st); } } ] },
+    { label:'Record image', onClick: st => { hbStop(st); record(st); } },
+    { label:'Search', onClick: st => { hbStop(st); search(st); } },
+    { label:'Show the hit', onClick: st => { hbStop(st); showHit(st); } },
+    { label:'Reset', onClick: st => { hbStop(st); reset(st); } },
   ],
   stats: st => [
     { label:'orientations', value: Math.round(288990 * st.scan).toLocaleString('en-US'), small:true },
@@ -1051,6 +1061,21 @@ ui = mountFigure({
   },
 });
 xrMount(() => ui, CAPTIONS);
+/* banner camera: a lower, more frontal view, so the scene reads left to right (microscope -> image <- template bank)
+   and fills a wide rectangle; ?yaw= / ?pitch= still override it */
+const HB_YAW = 22, HB_PITCH = 25;
+function hbFrame(){
+  OX = OY = 0;
+  const pts = []; for (const x of [0, hbW]) for (const y of [0, hbD]) for (const z of [0, 62]) pts.push(P(x, y, z));
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), bw = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys);
+  const vbW = Math.max(bw / .96, bh / .62 / .75), vbH = vbW * .75;
+  OX = (vbW - bw) / 2 - Math.min(...xs); OY = vbH * .975 - bh - Math.min(...ys);
+  const svg = document.getElementById('fig'); svg.setAttribute('viewBox', `0 0 ${f(vbW)} ${f(vbH)}`);
+  INK_K = vbW / INK_REF_VB; document.getElementById('fdefs').innerHTML = filterFor(INK_K);
+}
+if (!HB_Q.has('yaw') && !HB_Q.has('pitch')){ setCam(HB_YAW, HB_PITCH); hbFrame(); }
+if (hbAuto){ let T = 0; ui.animate(dt => { if (!hbAuto) return false; T += dt; Object.assign(ui.st, hbStateAt(T)); return true; }); }
+ui.render();
 </script><style>@media (max-width:560px),(pointer:coarse){#art{filter:none!important}.ctl:has(#wb){display:none!important}}</style><style>@media (max-width:560px){html body .kpad{width:100%;box-sizing:border-box;justify-content:space-between;gap:10px;margin:10px 0 0;padding:0;border:0;background:none;box-shadow:none}
 html body .kpad .dp{display:flex;gap:8px}html body .kpad .hub{display:none}
 html body .kpad .k{width:46px;height:42px;font-size:14px;border-radius:9px}
