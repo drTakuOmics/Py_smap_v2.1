@@ -138,7 +138,8 @@ class Tile:
         return sub, xs * self.apix, ys * self.apix
 
 
-def read_reference(path: Path, micrograph_glob="*_fractions.mrc"):
+def read_reference(path: Path, micrograph: str):
+    """Reference picks of one micrograph (basename match), as in rnf213_workflow_v3.py."""
     labels, xy = [], []
     for line in path.read_text().splitlines():
         s = line.strip()
@@ -150,7 +151,7 @@ def read_reference(path: Path, micrograph_glob="*_fractions.mrc"):
                 xy.append((float(f[labels.index("_rlnCoordinateX")]),
                            float(f[labels.index("_rlnCoordinateY")]),
                            f[labels.index("_rlnMicrographName")] if "_rlnMicrographName" in labels else ""))
-    return xy
+    return [p for p in xy if Path(p[2]).name == micrograph]
 
 
 # ------------------------------------------------------------------ drawing
@@ -254,6 +255,9 @@ def main(argv=None):
                     help="display floor for the landscapes: values below are drawn at the floor "
                          "(auto = ceil(median + 1 SD) of the map; 'none' shows everything)")
     ap.add_argument("--reference", default=None, help="RELION STAR with reference picks (markers only)")
+    ap.add_argument("--micrograph", default=None,
+                    help="micrograph name for the reference picks (default: the single *_fractions.mrc "
+                         "in the current folder)")
     ap.add_argument("--max-candidates", type=int, default=24)
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv)
@@ -280,7 +284,16 @@ def main(argv=None):
         lo = float(a.zfloor)
     zlim = (lo, max(hi, (cutoff or hi) + 1))                          # 3-D landscapes
     vlim = (math.floor(float(np.percentile(vals, 1))), zlim[1])         # top views, profiles
-    refs = read_reference(Path(a.reference)) if a.reference else []
+    refs = []
+    if a.reference:
+        mic = a.micrograph
+        if mic is None:
+            found = sorted(Path.cwd().glob("*_fractions.mrc"))
+            if len(found) != 1:
+                raise SystemExit("give --micrograph (no single *_fractions.mrc in the current folder)")
+            mic = found[0].name
+        refs = read_reference(Path(a.reference), Path(mic).name)
+        print(f"{len(refs)} reference picks for {mic}")
     out.mkdir(parents=True)
     meta = dict(tile=str(A.tile), compare=str(B.tile) if B else None, metric=a.metric,
                 metric_label=zlab, cutoff=cutoff, window_A=a.window, cmap=a.cmap,
