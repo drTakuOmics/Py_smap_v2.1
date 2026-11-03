@@ -53,8 +53,9 @@ def fdr_curve(target: np.ndarray, decoy: np.ndarray, cutoffs: np.ndarray):
     nd = count_ge(decoy, cutoffs)
     with np.errstate(divide="ignore", invalid="ignore"):
         fdr = np.where(nt > 0, np.minimum(1.0, nd / np.maximum(nt, 1)), 0.0)
-    # q(c) = min FDR over all cutoffs <= c  (cutoffs ascending)
-    q = np.minimum.accumulate(fdr[::-1])[::-1]
+    # q(c) = min FDR over all cutoffs <= c (cutoffs ascending): the lowest FDR at which a
+    # candidate scoring c is still accepted; non-increasing in c
+    q = np.minimum.accumulate(fdr)
     return nt, nd, fdr, q
 
 

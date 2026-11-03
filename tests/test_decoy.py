@@ -62,8 +62,10 @@ def test_fdr_and_q_values():
     assert nt.tolist() == [6, 5, 4, 3] and nd.tolist() == [2, 1, 0, 0]
     assert np.allclose(fdr, [2 / 6, 1 / 5, 0, 0]) and np.all(np.diff(q) <= 0)
     assert count_ge(t, np.array([8.0]))[0] == 3        # >= as in the RNF213 review
+    assert np.allclose(q, [1 / 3, 1 / 5, 0, 0])              # q(c) = min FDR over cutoffs <= c
     qv = q_values(t, d)
-    assert qv[0] == 0 and qv[-1] == np.max(qv)
+    # targets 9 ... 6.5: accepted with FDR 0 from 7.5 up; 7.0 costs 1/5, 6.5 costs 1/3
+    assert np.allclose(qv, [0, 0, 0, 0, 1 / 5, 1 / 3])
 
 
 def test_target_vs_other_protein_decoy_pipeline(tmp_path):
