@@ -39,6 +39,7 @@ algorithm, `.par` files and output files.
 
 - full-image z-score, MIP and p-value maps (Zhang et al., IUCrJ 2025);
 - 3D peak landscapes ("correlograms");
+- whole-micrograph figures: fitted poses drawn on the micrograph, z-score map, landscape with the cutoff;
 - target–decoy FDR estimates;
 - RELION/cryoSPARC STAR export;
 - a tool that compares two runs;
@@ -105,7 +106,7 @@ The decoy for the ribosome example is in the same folder (`model/5j5b_monster.pd
 same way with `modelFile` set to that file, then compare score distributions with
 `python -m smap.decoy`.
 
-## Example: RNF213 pilot (purified, single-particle micrographs)
+## Example 1: RNF213 pilot (purified, single-particle micrographs)
 
 Micrographs (4092 × 5760 px, 1.072 Å/px) were cut into 1024² tiles. Each tile was searched
 with the full RNF213:UBE2L3 template (7OIK) and, for validation, with a partial template in
@@ -165,14 +166,58 @@ here the pilot micrograph, where only tile 0003 was searched with the port, the 
   E3-omitted template are reconstructed and checked for the omitted density. The 21-image
   anchor batch and the port check on it are in the example.
 
+## Example 2: 60S ribosomes in a cell (legacy SMAP sample, whole micrograph)
+
+`sample_search.par` searches an 864-px crop of the legacy micrograph. Here the whole micrograph
+(3456 × 3456 px, 1.032 Å/px, 357 nm across) was searched with the same settings
+(1.5 Å search sampling, 3.8°: 288,990 orientations, 5 defocus planes over 200 nm): once with the
+60S subunit (6EK0) and once with the decoy, a rearranged *E. coli* ribosome of similar mass
+(5J5B), which is not in the sample.
+
+75 candidates passed `optThr 7` and were refined. 69 have a final score ≥ 7.25 (66 ≥ 8; the
+highest is 17.3). The search took 48 min on one RTX 3090 (10.0 ms per orientation, batch size 8).
+
+![LSU detections on the whole micrograph](examples/ribosome_in_situ/results/figures/full_LSU_summary.png)
+
+<sub>Left: each detection with final score ≥ 7.25 drawn as the 6EK0 surface at its fitted pose
+and position. Middle: search z-score over the whole micrograph (12 Å max-binning), cyan contour
+at 7.25, detections circled (grey: refined, below the cutoff). Right: the same map as a
+landscape with the cutoff plane; labels mark the 12 highest detections. Close-ups, micrograph
+next to the fitted surfaces:
+[full_LSU_poses_pairs.png](examples/ribosome_in_situ/results/figures/full_LSU_poses_pairs.png).</sub>
+
+**Where to put the cutoff.** The four map-based estimates and the target–decoy cutoff at
+q ≤ 0.05 agree within 0.25 (7.10–7.34):
+
+| Method | Cutoff |
+|---|---|
+| v2.1 Gaussian threshold (one false positive per image) | 7.34 |
+| Tail fit of the z-score map (generalised Pareto) | 7.23 |
+| Extreme-value fit of the z-score map (GEV) | 7.15 |
+| Decoy (5J5B) z-score map | 7.10 |
+| Target–decoy on refined candidates, q ≤ 0.05 | 7.25 |
+| Target–decoy, q ≤ 0.01 | 7.90 |
+
+The decoy search gave 8 refined candidates (final scores 6.81–7.86). Three of them are above
+7.25, against 69 LSU detections (estimated FDR 4%); none is above 7.9.
+
+```bash
+P="--path-map /opt/smap=examples/ribosome_in_situ --batch-size 8"
+python -m smap.search_global examples/ribosome_in_situ/full_search.par $P --output-dir results/full_LSU
+python -m smap.search_global examples/ribosome_in_situ/full_search_decoy.par $P --output-dir results/full_decoy
+python -m smap.cutoff results/full_LSU --decoy results/full_decoy --plot
+python -m smap.decoy --pair results/full_LSU results/full_decoy --out results/decoy_calibration
+python tools/search_figures.py results/full_LSU --cutoff 7.25 --label "LSU (6EK0)" --out results/figures_LSU
+```
+
 ## Repository layout
 
 | Path | Contents |
 |---|---|
 | `smap/` | the port: `search_global` (setup, GPU search, combine, CLI), `refine` (clustering, refinement, optimisation, output files), `structure` (atomic model → scattering potential), `ctf`, `grid`, `rot`, `io`, `utils`, `stats`; new: `compare`, `decoy`, `export`, `pvalue`, `provenance` |
-| `examples/ribosome_in_situ/` | upstream SMAP v2.1 sample: image, LSU target, ribosome decoy, rotations, `sample_search.par` |
+| `examples/ribosome_in_situ/` | upstream SMAP v2.1 sample: image, LSU target, ribosome decoy, rotations, `sample_search.par`; whole-micrograph searches (`full_search.par`, `full_search_decoy.par`) and their figures |
 | `examples/rnf213_purified/` | RNF213 pilot: workflow recap, workflow scripts, results (figures, tables) |
-| `tools/` | `gpu_smoke.py`, `make_decoy_model.py`, `gen_sf_table.py`; `tools/rnf213/`: tile runner, correlograms, micrograph landscape |
+| `tools/` | `gpu_smoke.py`, `make_decoy_model.py`, `gen_sf_table.py`, `search_figures.py` (poses, z-score map and landscape of one search); `tools/rnf213/`: tile runner, correlograms, micrograph landscape |
 | `tests/` | Octave-parity tests (references generated from the original MATLAB code), synthetic end-to-end, CLI and tool tests |
 | `experiments/` | small numerical studies behind the optional improvements |
 | `docs/` | upstream SMAP v2.1 README, figures, interactive banner (`hrtm_banner.html`) |
