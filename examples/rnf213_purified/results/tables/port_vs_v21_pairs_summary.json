@@ -1,0 +1,36 @@
+{
+ "tiles": 1027,
+ "candidates_v21": 1793,
+ "candidates_port": 1792,
+ "paired": 1763,
+ "paired_without_final_scores": 0,
+ "unpaired_v21": 30,
+ "unpaired_port": 29,
+ "d_score_final_port_minus_v21": {
+  "mean": -0.0006,
+  "sd": 0.0751,
+  "median": 0.0,
+  "pearson_r": 0.9964,
+  "n_abs_gt_threshold": 41,
+  "threshold": 0.2
+ },
+ "large_delta_pairs_with_different_pose_or_defocus": 34,
+ "max_abs_search_mean": 0.0014032050967216492,
+ "max_abs_search_SD": 0.0008897781372070312,
+ "max_abs_highVals_score": 0.056999999999999496,
+ "tiles_without_highVals_score": 255,
+ "tiles_failing_each_check": {
+  "search_mean.mrc": 1027,
+  "search_SD.mrc": 1027,
+  "search_SH_tail": 579,
+  "highVals": 245,
+  "d_score_final": 134,
+  "d_defocus_nm": 93,
+  "same_particle_count": 53,
+  "d_score_refined": 52,
+  "count_final_ge_7": 39,
+  "count_final_ge_8": 30,
+  "angle_refined_deg": 25,
+  "angle_final_deg": 25
+ }
+}

@@ -1,0 +1,9 @@
+quantity,smap_v21,pysmap
+tiles compared,1027,1027
+refined candidates,1793,1792
+paired candidates,1763,1763
+entries final SNR >= 8 before overlap removal,1106,1098
+candidates after overlap removal (images 1-19),585,582
+reference-position matches (images 1-19),135,134
+median seconds per tile,756,254
+"GPU hours, all compared tiles",236.5,72.2

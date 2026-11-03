@@ -1,0 +1,4 @@
+run,angle_deg,orientations,tiles_completed,min_per_tile_median,gpu_hours_completed_tiles,sections_reviewed,entries_ge8_before_overlap_removal,detections_after_overlap_removal,reference_matches,reference_picks_in_footprint,reference_recovery_pct
+tiles_5deg,5.0,126864,54/54,6.2,5.6,41,253,137,35,54,64.8
+tiles_3p8,3.8,288990,53/54,12.5,11.1,41,295,162,38,54,70.4
+tiles_1p8,1.8,2593766,42/54,104.1,73.3,41,327,179,42,54,77.8
