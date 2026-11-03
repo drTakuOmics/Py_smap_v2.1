@@ -120,7 +120,21 @@ because more parameters are fitted, so the cutoff for this mode has to be set wi
 
 ![v2.1 vs port](docs/figures/rnf213_tile0003_parity.png)
 
-**2. The full z-score map is now available.** v2.1 stored scores only above `arbThr`. The port
+On the 21-micrograph anchor batch (below), 1,027 tiles of 19 micrographs were searched with both:
+pysmap paired 1,763 of 1,793 v2.1 candidates (98.3%), with final-SNR differences of mean −0.0006
+and SD 0.075. On the same RTX 3090 and the same tiles, pysmap (`--batch-size 8`) used about
+3.3× less GPU time than SMAP v2.1 (72 vs 236 GPU hours, wall time including start-up)
+([details](examples/rnf213_purified/README.md#3-port-check-pysmap-vs-smap-v21-on-the-same-tiles)).
+
+**2. One micrograph, three angular steps.** The pilot micrograph was searched with the full 7OIK
+template at 5°, 3.8° and 1.8° (SMAP v2.1): 137, 162 and 179 detections on the 41 tiles finished
+in all three runs. At 3.8°, every accepted detection drawn as the 7OIK surface at its fitted pose,
+at physical scale (close-ups, orientations and the anchor batch:
+[examples/rnf213_purified](examples/rnf213_purified/README.md#workflow-recap)):
+
+![pilot micrograph with fitted 7OIK surfaces](examples/rnf213_purified/results/figures/pilot_surface_overview_3p8.png)
+
+**3. The full z-score map is now available.** v2.1 stored scores only above `arbThr`. The port
 writes the whole map, so every candidate can be shown as a 3D peak landscape (the per-pixel
 z-score at the search stage, before refinement):
 
@@ -130,12 +144,12 @@ z-score at the search stage, before refinement):
 |---|---|
 | ![candidate 8](docs/figures/rnf213_tile0003_candidate08.png) | ![tile overview](docs/figures/rnf213_tile0003_overview.png) |
 
-All searched tiles of a micrograph can be stitched into one landscape (shown with one of 54
-tiles searched so far):
+The tiles of a micrograph can be stitched into one landscape (`tools/rnf213/rnf213_landscape.py`;
+here the pilot micrograph, where only tile 0003 was searched with the port, the others grey):
 
 ![micrograph landscape](docs/figures/rnf213_micrograph_landscape_tile0003.png)
 
-**3. Validation controls.**
+**4. Validation controls.**
 
 - A mirror-image (enantiomer) template is **not** a decoy for 2D searches. Every projection of
   the mirrored model equals a projection of the original at another orientation, so handedness
@@ -148,8 +162,8 @@ tiles searched so far):
   domain) to the searched template's atom count and shape. It also reports truncated side
   chains, which would weaken the decoy.
 - Identity is tested with **omitted-domain (anchor) searches**: particles found with the
-  E3-omitted template are reconstructed and checked for the omitted density. The same 21-image
-  anchor batch is being re-run with the port for a side-by-side comparison with v2.1.
+  E3-omitted template are reconstructed and checked for the omitted density. The 21-image
+  anchor batch and the port check on it are in the example.
 
 ## Repository layout
 
@@ -157,7 +171,7 @@ tiles searched so far):
 |---|---|
 | `smap/` | the port: `search_global` (setup, GPU search, combine, CLI), `refine` (clustering, refinement, optimisation, output files), `structure` (atomic model → scattering potential), `ctf`, `grid`, `rot`, `io`, `utils`, `stats`; new: `compare`, `decoy`, `export`, `pvalue`, `provenance` |
 | `examples/ribosome_in_situ/` | upstream SMAP v2.1 sample: image, LSU target, ribosome decoy, rotations, `sample_search.par` |
-| `examples/rnf213_purified/` | RNF213 pilot: commands, results tables |
+| `examples/rnf213_purified/` | RNF213 pilot: workflow recap, workflow scripts, results (figures, tables) |
 | `tools/` | `gpu_smoke.py`, `make_decoy_model.py`, `gen_sf_table.py`; `tools/rnf213/`: tile runner, correlograms, micrograph landscape |
 | `tests/` | Octave-parity tests (references generated from the original MATLAB code), synthetic end-to-end, CLI and tool tests |
 | `experiments/` | small numerical studies behind the optional improvements |
