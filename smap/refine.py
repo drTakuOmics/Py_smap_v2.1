@@ -548,6 +548,7 @@ def write_final(st: SearchSetup, optimized, jobs_sizes=None):
     a = float(p["aPerPix"])
     sio.mw(np.stack([o["patch"] for o in optimized], axis=2), out / "particles.mrc", a)
     sio.mw(np.stack([o["template"] for o in optimized], axis=2), out / "templates.mrc", a)
+    print(patch_box_note(optimized[0]["patch"].shape[0], a, p))
 
     q_offset = np.diag([1.0, -1.0, -1.0])
     mag = 5000.0 / (a / 10)
@@ -587,8 +588,23 @@ def _pv_at(pv, rc) -> float:
     return float(pv[r, c]) if 0 <= r < pv.shape[0] and 0 <= c < pv.shape[1] else float("nan")
 
 
+def patch_box_note(n_box: int, a: float, p: dict) -> str:
+    """Warning written with particles.mrc: the saved patches are the template box (NEW)."""
+    from .ctf import wavelength
+    df_A = float(np.max(np.abs(np.asarray(p["defocus"], dtype=float)[..., :2]))) * 10.0   # nm -> A
+    deloc = wavelength(float(p.get("V_acc", 300000.0))) * 1e10 * df_A / 3.0               # A, at 3 A
+    return (f"NOTE particles.mrc: {n_box} x {n_box} px patches ({n_box * a:.0f} A) = the template box. "
+            f"Anything outside the template (neighbours, bound partners, surround volumes, a larger "
+            f"template, re-detection with another model) needs boxes re-extracted from the micrograph "
+            f"at x_orig0_est/y_orig0_est, at least (extent of interest + 2 x {deloc:.0f} A) wide: the CTF "
+            f"spreads 3-A signal over ~{deloc:.0f} A at this defocus.")
+
+
 PARTICLES_SCHEMA = {
     "file": "particles.csv (one row per optimised candidate; same order as particles.txt/.par/.mrc)",
+    "particles.mrc": "centred patches the size of the template box (Npix at aPerPix); re-extract "
+                     "larger boxes from the micrograph for any analysis outside the template "
+                     "(neighbours, bound partners, surround volumes, other templates)",
     "columns": {
         "num_id": "1-based index; row j <-> particles.txt row j <-> j@particles.mrc",
         "score_final": "final optimised, pixelwise flat-fielded SMAP SNR (= particles.txt CC); "

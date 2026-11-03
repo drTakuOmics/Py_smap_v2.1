@@ -141,7 +141,12 @@ inverse rotation or the mirror volume (`tests/test_export.py`). Not yet run thro
 itself. Defocus: U/V = df1/df2 × 10 Å, angle = −ast·180/π (= particles.par ANGAST).
 Coordinates are zero-based like the RNF213 STAR files (`--coord-origin 1` otherwise).
 `--images` adds `rlnImageName j@particles.mrc` (centred SMAP patches, origin 0) so
-`relion_reconstruct --ctf` can run on the detected patches directly. SMAP's search does not
+`relion_reconstruct --ctf` can run on the detected patches directly. These patches are the
+template box: a reconstruction from them covers only the template volume, and CTF-delocalised
+signal (≈ λ·Δf/d, e.g. ~65 Å for 3 Å at 1 µm and 300 kV) beyond the box is lost. For anything
+outside the template (neighbours, bound partners, surround volumes, re-detection with a larger
+template) re-extract boxes of at least (extent of interest + 2 × delocalisation) from the
+micrograph; the search writes this note to the log with the values for its defocus. SMAP's search does not
 model amplitude contrast (`F_abs 0`); the STAR uses `--amp-contrast` (default 0.07).
 
 ## Tests (`pytest tests`)
