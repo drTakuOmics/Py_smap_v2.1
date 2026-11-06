@@ -92,6 +92,7 @@ coordinates).
 |---|---|---|
 | `oversample K` | 1 | Zero-pad the potential K-fold before its FFT. Template CC vs exact projection 0.987 → 0.9997 at K = 2 (`experiments/e1`). GPU memory for the volume ×K³ (single precision when K > 1) |
 | `dedupe_orientations 1` | 0 | Drop repeated grid orientations (φ = 0/φ_max at every θ: 4,750 of 288,990 at 3.8°). Changes rotation indices |
+| `symmetryFile ops.txt` | — | Keep one asymmetric unit of the template's point group: orientations whose viewing direction (third row of R) is the representative of its orbit {S d}, all in-plane angles (|G|× fewer; 60× for I). `ops.txt` holds the rotation parts of the model's own symmetry operators, written by `python -m smap.symmetry MODEL.cif --out ops.txt` from `_pdbx_struct_oper_list` (group closure checked). The template must be the full symmetric assembly; indices refer to the reduced `rotations.txt` |
 | `template_bfactor B` | 0 | Multiply the template CTF by exp(−B k²/4) (search, refinement, optimisation). Fit B on detected particles; see `experiments/e3` |
 | `fix_even_grid 1` | 0 | Exact voxel spacing for even potential boxes (v2.1 scales coordinates by (N−1)/N) |
 | `fix_pdb_short_lines 1` | 0 | Keep PDB lines shorter than 78 characters (v2.1 drops them) |

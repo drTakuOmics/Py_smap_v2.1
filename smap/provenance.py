@@ -42,7 +42,7 @@ def provenance(params: dict) -> dict:
         tv, cuda = torch.__version__, (torch.cuda.get_device_name(0) if torch.cuda.is_available() else None)
     except Exception:  # pragma: no cover
         tv, cuda = None, None
-    files = {k: params.get(k) for k in ("imageFile", "structureFile", "modelFile", "rotationsFile")
+    files = {k: params.get(k) for k in ("imageFile", "structureFile", "modelFile", "rotationsFile", "symmetryFile")
              if params.get(k)}
     return dict(
         smap_port_version=__version__, code_commit=code_commit(),

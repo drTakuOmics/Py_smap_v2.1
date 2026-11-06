@@ -173,10 +173,16 @@ def prepare(params_file: str | Path, device=None, write_files: bool = True,
         R, _ = calculate_search_grid("C1", params["angle_inc"], params["psi_inc"],
                                      dedupe=bool(params.get("dedupe_orientations", 0)))
         params["range_degrees"] = (params["angle_inc"] + params["psi_inc"]) / 2
-        if write_files:
-            sio.write_rotations_file(R, out_dir / "rotations.txt")
     else:
         R = sio.read_rotations_file(params["rotationsFile"])
+    if params.get("symmetryFile"):          # NEW: one asymmetric unit of the template's point group
+        from .symmetry import reduce_grid
+        S = sio.read_rotations_file(params["symmetryFile"])
+        n_all = R.shape[0]
+        R = reduce_grid(R, S)
+        _log(log, f"symmetry: {S.shape[0]} operators; {R.shape[0]} of {n_all} orientations kept")
+    if write_files and (params.get("angle_inc") is not None or params.get("symmetryFile")):
+        sio.write_rotations_file(R, out_dir / "rotations.txt")   # indices refer to this list
     _log(log, f"{R.shape[0]} orientations in search grid")
 
     # defocus stack
