@@ -1,0 +1,31 @@
+# MS2 capsid (EMPIAR-10075), template = 2MS2 assembly 1 (180 coat proteins), icosahedral reduction.
+# imageFile, defocus and outputDir are filled per micrograph by tools/cryosparc_ctf_to_pars.py.
+# /ms2 is mapped to the data folder with --path-map /ms2=$MS2_DATA
+function search_global
+nCores 1
+imageFile /placeholder.mrc
+structureFile /ms2/models/2MS2-assembly1.cif
+modelName 2MS2_capsid
+symmetryFile /ms2/models/2MS2_I.txt
+outputDir /placeholder
+aPerPix 1.16
+defocus 0 0 0
+defocus_format CTFFind
+aPerPix_search 1.5
+angle_inc 3.8
+# sample thickness and defocus step (nm): 5 planes over 80 nm
+T_sample 80
+df_inc 20
+V_acc 300000.0
+Cs 0.00002
+Cc 0.0027
+deltaE 0.7
+a_i 0.000050
+optThr 7.0
+qThr 10
+dThr 10
+inc_degrees 0.5
+arbThr 6.0
+keep_scratch_flag 0
+# edge margin in search pixels (1.5 A): about one capsid radius
+margin_pix 96

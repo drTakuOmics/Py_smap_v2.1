@@ -1,0 +1,28 @@
+# DeCo-LACE tiles (EMPIAR-11063): mouse closed TRiC (7NVL with mouse sequences); LSU control uses the same settings.
+# imageFile, structureFile, defocus, aPerPix, V_acc, Cs and outputDir are set per tile by decolace_prep.py
+function search_global
+nCores 1
+imageFile /placeholder.mrc
+structureFile /placeholder.mrc
+modelName TRiC_closed_mouse
+outputDir /placeholder
+aPerPix 1.5
+defocus 0 0 0
+defocus_format CTFFind
+aPerPix_search 1.5
+angle_inc 3.8
+# lamellae 100-250 nm thick: 5 defocus planes over 200 nm (nm)
+T_sample 200
+df_inc 50
+V_acc 300000.0
+Cs 0.0027
+Cc 0.0027
+deltaE 0.7
+a_i 0.000050
+optThr 7.0
+qThr 10
+dThr 10
+inc_degrees 0.5
+arbThr 6.0
+keep_scratch_flag 0
+margin_pix 32
