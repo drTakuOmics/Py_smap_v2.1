@@ -189,6 +189,9 @@ def main(argv=None) -> int:
             decoy.append(dict(tile=k, cut=cut, tric=st_, decoy=sd_))
         table.append(row)
     table.sort(key=lambda r: r["tile"])
+    if not table:
+        print(f"no finished TRiC searches in results_TRiC{sfx} (or review{sfx}) yet: nothing to report")
+        return 0
     with open(out / f"tric_report{sfx}.csv", "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(table[0]))
         w.writeheader()
