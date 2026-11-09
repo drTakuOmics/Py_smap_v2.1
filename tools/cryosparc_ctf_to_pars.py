@@ -8,7 +8,7 @@ and writes, for every micrograph, a copy of a template .par with ``imageFile``, 
 the original files by name (cryoSPARC's numeric import prefix is removed).
 
     python tools/cryosparc_ctf_to_pars.py J5/J5_exposures_ctf_estimated.cs J5/J5_passthrough_exposures.cs \\
-        --template ms2_capsid.par --micrograph-dir ~/data/ms2/micrographs \\
+        --template search.par --micrograph-dir /path/to/micrographs \\
         --out-dir pars --results-dir results [--max-fit-A 8]
 
 Outputs in --out-dir: ``<name>.par``, ``ctf_table.csv`` (all micrographs, with the reason for any

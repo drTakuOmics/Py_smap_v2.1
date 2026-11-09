@@ -1,18 +1,16 @@
 # Troubleshooting and FAQ
 
-Common problems when running 2D template matching with pysmap on cellular lamellae
-(DeCo-LACE tiles, EMPIAR-11063) and on purified particles (MS2 virions, EMPIAR-10075).
-Each entry gives the symptom, the cause, the fix and, where useful, the command.
+Common problems when running 2D template matching with pysmap, most of them met on cellular
+lamellae (DeCo-LACE tiles, EMPIAR-11063). Each entry gives the symptom, the cause, the fix and, where
+useful, the command.
 
 Commands are run from the repository folder; the helper scripts are in
-[`examples/decolace_tric/`](../examples/decolace_tric) and [`examples/ms2_capsid/`](../examples/ms2_capsid).
-Data and results live in working folders outside the repository; set them once per shell:
+[`examples/decolace_tric/`](../examples/decolace_tric) and [`tools/`](../tools).
+Data and results live in a working folder outside the repository; set it once per shell:
 
 ```
 export PYSMAP=/path/to/Py_smap_v2.1      # repository clone
 export WORK=/path/to/decolace            # DeCo-LACE working folder (tiles, .par files, results, report)
-export MS2_WORK=/path/to/ms2_work        # MS2 working folder
-export MS2_DATA=/path/to/ms2_empiar10075 # MS2 micrographs and models
 conda activate pysmap
 cd $PYSMAP
 ```
@@ -126,25 +124,34 @@ for p in $WORK/pars_TRiC/*.par; do python tools/ctf_check.py $p | sed 's/^[^:]*:
 ```
 
 ### 4.3 Cs-corrected microscopes
-Use the actual Cs (EMPIAR-10075: 0.02 mm) both for CTF estimation and in the search.
+Use the actual Cs (close to 0, for example 0.02 mm) both for CTF estimation and in the search. In the
+`.par` file `Cs` is in metres (0.02 mm = `2e-5`).
 
-### 4.4 A large particle is never detected
-- **Symptom:** maximum score about 7 on every micrograph although particles are visible.
-- **Cause:** pixel size error. For a 270 Å capsid, 4% (1.16 Å instead of 1.114 Å) moves the rim by
-  about 5.5 Å, more than the resolution of the search.
-- **Diagnosis:** `ms2_ctf_scan.py` correlates the image with a rotationally averaged capsid template,
-  without an orientation search, while scanning pixel size, defocus and contrast sign.
-- **Fix:** rebuild the `.par` files at the calibrated pixel size. Defocus scales with
-  (new / old pixel)², which is exact for Cs ≈ 0; the CTF does not need to be re-estimated.
+### 4.4 Pixel size of large particles
+- **Why it matters:** a pixel-size error of p moves density at radius r by p·r. For a 270 Å capsid, 4%
+  moves the rim by about 5.5 Å, more than the resolution of the search.
+- **Check:** for near-spherical particles (capsids, ferritin cages) `tools/radial_scan.py` correlates
+  the image with the rotationally averaged projection of the particle, without an orientation search,
+  while scanning pixel size, defocus and contrast sign. It also returns the particle positions.
+- **Fix:** rebuild the `.par` files at the calibrated pixel size. A defocus fitted at the wrong pixel
+  size scales with (new / old pixel)², which is exact for Cs ≈ 0; the CTF does not need to be estimated
+  again.
+- **Not sufficient on its own:** if the scan finds the particles but the full search still does not,
+  the images lack high-resolution signal for the template, or the template differs from the particle
+  (missing or extra components). The raw MIP (`search_mip.mrc`) shows whether any orientation
+  correlates at the particle positions.
 
 ```
-python examples/ms2_capsid/ms2_ctf_scan.py $MS2_WORK/results_a3.8/*/ --fine --out $MS2_WORK/diag
-python examples/ms2_capsid/ms2_make_cal_pars.py --jobs $MS2_WORK/pars_a3.8/jobs.txt --calib $MS2_WORK/diag/ms2_pixel_calibration.csv --model $MS2_DATA/models/2MS2-assembly1.cif --work $MS2_WORK
+python tools/radial_scan.py $WORK/results_<search>/<micrograph>/ --fine --out $WORK/radial_scan
+python tools/radial_scan.py --image MIC.mrc --map PARTICLE.mrc --pixel 1.16 --defocus 15000 14600 35 --cs 2.7 --fine --out radial_scan
 ```
+
+A short search with `--max-rotations 2000 --no-refine --allow-incomplete` writes everything the first
+form needs (`searchImage.mrc`, the template potential and `search_status.json`).
 
 ### 4.5 Inverted contrast
-`ms2_ctf_scan.py` scores both signs. With normal contrast the template "as built" wins when the CTF
-is applied, and the "flipped" template wins without CTF (the particle is a dark disc).
+`radial_scan.py` scores both signs. With normal contrast the template "as built" wins when the CTF is
+applied, and the "flipped" template wins without CTF (the particle is a dark disc).
 
 ---
 
@@ -266,7 +273,8 @@ cisTEM search, take its settings from the database (`TEMPLATE_MATCH_LIST`), whic
 
 - `symmetryFile` (operators from the mmCIF `pdbx_struct_oper_list`) restricts the grid to one
   asymmetric unit; for icosahedral symmetry this is 60× fewer orientations.
-- Large particles need an accurate pixel size (4.4) and a finer angular step (2.5° for MS2).
+- Large particles need an accurate pixel size (4.4) and a finer angular step: an orientation error Δθ
+  (radians) moves density at radius r by about r·Δθ.
 
 ```
 python -m smap.symmetry MODEL.cif --out ops.txt --assembly MODEL-assembly1.cif
@@ -283,5 +291,4 @@ python -m smap.symmetry MODEL.cif --out ops.txt --assembly MODEL-assembly1.cif
 | TRiC tables and figure | `$WORK/report/tric_report*.png`, `.csv` |
 | Per-tile settings | `$WORK/pars_<search>/<tile>.par` |
 | Search results | `$WORK/results_<search>/<tile>/` (`_opt6.5`: re-refined) |
-| MS2 | `$MS2_WORK/` (`diag/`, `pars_cal/`, `results_cal/`) |
-| Helper scripts | `examples/decolace_tric/`, `examples/ms2_capsid/` |
+| Helper scripts | `examples/decolace_tric/`, `tools/` |

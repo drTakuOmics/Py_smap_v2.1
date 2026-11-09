@@ -3,8 +3,8 @@
 
 Collects what exists (nothing is searched): the status table, the TRiC report(s) at both cutoffs,
 the ribosome control against the authors, the picked TRiC templates for closed and open state on
-the same tiles (tools/search_figures.py: poses on the micrograph and template/patch pairs), MS2
-calibration and results, and the FAQ. Re-run it any time; figures are made only once per search.
+the same tiles (tools/search_figures.py: poses on the micrograph and template/patch pairs), and the
+FAQ. Re-run it any time; figures are made only once per search.
 
   cd $PYSMAP
   python examples/decolace_tric/tric_summary.py --dest $WORK
@@ -16,7 +16,6 @@ from __future__ import annotations
 import argparse
 import csv
 import html
-import json
 import os
 import re
 import shutil
@@ -148,7 +147,6 @@ def make_figures(repo: Path, result: Path, out: Path, cutoff: float, label: str,
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--dest", required=True)
-    ap.add_argument("--ms2", default=os.environ.get("MS2_WORK", "~/ms2_work"), help="MS2 working folder")
     ap.add_argument("--strict", type=float, default=7.8, help="cutoff for the picked-template figures")
     ap.add_argument("--tiles", nargs="*", default=None, help="tiles for closed/open figures (default: all with open done)")
     ap.add_argument("--no-figures", action="store_true")
@@ -158,7 +156,6 @@ def main(argv=None) -> int:
     repo = Path(__file__).resolve().parents[2]
     rep = d / "report"
     rep.mkdir(exist_ok=True)
-    ms2 = Path(a.ms2).expanduser()
     log = lambda m: print(m, flush=True)  # noqa: E731
     secs = []
 
@@ -212,36 +209,14 @@ def main(argv=None) -> int:
         body += f"<h3>{esc(p.stem)}</h3>" + img(rep, p)
     secs.append(("lsu", "Ribosome control vs the authors' list", body or "<p class='note'>run lsu_gap.py</p>"))
 
-    # MS2
-    body = ""
-    cal = ms2 / "diag" / "ms2_pixel_calibration.csv"
-    if cal.exists():
-        body += "<h3>Pixel-size calibration</h3>" + csv_table(cal)
-    res_cal = ms2 / "results_cal"
-    if res_cal.is_dir():
-        rows = []
-        for f in sorted(p for p in res_cal.iterdir() if p.is_dir()):
-            if not (f / "search_status.json").exists():
-                rows.append((f.name[:40], "not finished", "", "", ""))
-                continue
-            thr = json.loads((f / "search_status.json").read_text()).get("gaussian_threshold") or 7.0
-            sc = [float(r["score_final"]) for r in csv.DictReader(open(f / "particles.csv"))] if (f / "particles.csv").exists() else []
-            rows.append((f.name[:40], len(sc), sum(s >= thr for s in sc), f"{max(sc):.2f}" if sc else "-", f"{thr:.2f}"))
-        body += ("<h3>Searches at the calibrated pixel size</h3><table><tr><th>micrograph</th><th>refined</th>"
-                 "<th>&gt;= cutoff</th><th>top</th><th>cutoff</th></tr>"
-                 + "".join("<tr>" + "".join(f"<td>{esc(x)}</td>" for x in r) + "</tr>" for r in rows) + "</table>")
-    for p in sorted((ms2 / "diag").glob("*_scan.png"))[:2] if (ms2 / "diag").is_dir() else []:
-        body += img(rep, p, p.name)
-    secs.append(("ms2", "MS2 capsid (EMPIAR-10075)", body or "<p class='note'>nothing yet</p>"))
-
     # FAQ
     faq = repo / "docs" / "FAQ.md"
     secs.append(("faq", "FAQ and common issues", md_to_html(faq.read_text()) if faq.exists() else ""))
 
     nav = "".join(f"<a href='#{k}'>{esc(t.split(':')[0])}</a>" for k, t, _ in secs)
     page = (f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
-            f"<title>TRiC and MS2 results</title><style>{CSS}</style></head><body><nav>{nav}</nav><main>"
-            f"<h1>TRiC on DeCo-LACE, ribosome control, MS2</h1><p class='meta'>Updated {time.strftime('%Y-%m-%d %H:%M')} &middot; "
+            f"<title>TRiC results</title><style>{CSS}</style></head><body><nav>{nav}</nav><main>"
+            f"<h1>TRiC on DeCo-LACE and ribosome control</h1><p class='meta'>Updated {time.strftime('%Y-%m-%d %H:%M')} &middot; "
             f"regenerate: <code>python examples/decolace_tric/tric_summary.py --dest {esc(str(d).replace(str(Path.home()), '~'))}</code></p>"
             + "".join(f"<h2 id='{k}'>{esc(t)}</h2>{b}" for k, t, b in secs) + "</main></body></html>")
     (rep / "index.html").write_text(page)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-"""One table of every search in the TRiC / MS2 work: what it is, where it is, how far it got.
+"""One table of every search in the DeCo-LACE TRiC work: what it is, where it is, how far it got.
 
-  python examples/decolace_tric/status.py    (folders: $WORK, default ~/decolace; $MS2_WORK, default ~/ms2_work)
+  python examples/decolace_tric/status.py    (working folder: $WORK, default ~/decolace)
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ from pathlib import Path
 
 H = Path.home()
 D = Path(os.environ.get("WORK", H / "decolace")).expanduser()          # DeCo-LACE working folder
-M = Path(os.environ.get("MS2_WORK", H / "ms2_work")).expanduser()      # MS2 working folder
 
 ROWS = [
     # name, template, image, jobs file, results folder, what it tests
@@ -34,8 +33,6 @@ ROWS = [
      "decoy protein, same tiles"),
     ("TRiC open", "TRiC open (6NR8 hybrid)", "as deposited", D / "jobs_TRiC_open.txt", D / "results_TRiC_open",
      "closed vs open state on the same tiles"),
-    ("MS2 calibrated", "2MS2, I symmetry, 2.5 deg", "pixel 1.114 A", M / "pars_cal/jobs.txt",
-     M / "results_cal", "calibrated pixel size and defocus"),
 ]
 
 

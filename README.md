@@ -215,8 +215,6 @@ python tools/search_figures.py results/full_LSU --cutoff 7.25 --label "LSU (6EK0
 - [`examples/decolace_tric/`](examples/decolace_tric): TRiC in cell lamellae (DeCo-LACE, EMPIAR-11063), with
   the controls needed to read the detections: deposited ribosomes as positive control, phase-randomised
   tiles for the noise rate after refinement, a decoy protein, image-artifact zones, and the open state.
-- [`examples/ms2_capsid/`](examples/ms2_capsid): MS2 capsid (EMPIAR-10075) with the icosahedral grid
-  reduction (`symmetryFile`) and a pixel-size and defocus calibration from the particles.
 - [`docs/FAQ.md`](docs/FAQ.md): common problems (jobs, GPU memory, `.par` pitfalls, CTF and pixel size,
   thresholds and noise, controls) with causes, fixes and commands.
 
@@ -228,8 +226,7 @@ python tools/search_figures.py results/full_LSU --cutoff 7.25 --label "LSU (6EK0
 | `examples/ribosome_in_situ/` | upstream SMAP v2.1 sample: image, LSU target, ribosome decoy, rotations, `sample_search.par`; whole-micrograph searches (`full_search.par`, `full_search_decoy.par`) and their figures |
 | `examples/rnf213_purified/` | RNF213 pilot: workflow recap, workflow scripts, results (figures, tables) |
 | `examples/decolace_tric/` | TRiC in DeCo-LACE lamellae: tile selection, searches, controls, re-refinement, review and one-page summary; TRiC templates (closed, open) |
-| `examples/ms2_capsid/` | MS2 capsid: icosahedral search, pixel-size and defocus calibration, diagnostics |
-| `tools/` | `gpu_smoke.py`, `make_decoy_model.py`, `gen_sf_table.py`, `search_figures.py` (poses, z-score map and landscape of one search), `ctf_check.py` (CTF against the Thon rings), `cryosparc_ctf_to_pars.py` (per-micrograph `.par` from cryoSPARC); `tools/rnf213/`: tile runner, correlograms, micrograph landscape |
+| `tools/` | `gpu_smoke.py`, `make_decoy_model.py`, `gen_sf_table.py`, `search_figures.py` (poses, z-score map and landscape of one search), `ctf_check.py` (CTF against the Thon rings), `cryosparc_ctf_to_pars.py` (per-micrograph `.par` from cryoSPARC), `radial_scan.py` (positions, pixel size, defocus and contrast sign of near-spherical particles, without an orientation search); `tools/rnf213/`: tile runner, correlograms, micrograph landscape |
 | `tests/` | Octave-parity tests (references generated from the original MATLAB code), synthetic end-to-end, CLI and tool tests |
 | `experiments/` | small numerical studies behind the optional improvements |
 | `docs/` | upstream SMAP v2.1 README, figures, interactive banner (`hrtm_banner.html`), [`FAQ.md`](docs/FAQ.md) |
