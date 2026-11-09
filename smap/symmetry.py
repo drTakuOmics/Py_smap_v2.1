@@ -8,10 +8,13 @@ row of R), maps to S d. Keeping only the orientations whose d lies in one cell o
 removes the |G| − 1 duplicates of each template and leaves one asymmetric unit.
 
 Unlike calculate_search_grid('I', ...), which needs the model in a standard orientation, this
-works with the symmetry operators of the model as deposited (mmCIF pdbx_struct_oper_list).
+works with the symmetry operators of the model as deposited (mmCIF pdbx_struct_oper_list), or,
+for entries that deposit the full assembly with only the identity listed (many cryo-EM entries),
+with the rotations that superpose the chains onto each other (``--from-chains``).
 
 ``symmetryFile`` in the .par: a rotations file (smap.io format) with the |G| rotation matrices.
-Write it with ``python -m smap.symmetry MODEL.cif --out ops.txt``.
+Write it with ``python -m smap.symmetry MODEL.cif --out ops.txt`` (add ``--from-chains`` for a
+deposited full assembly).
 """
 
 from __future__ import annotations
@@ -97,6 +100,62 @@ def cif_point_operators(path) -> np.ndarray:
     raise ValueError(f"{path}: the operators do not form a rotation group")
 
 
+def _atom_site_ca(path) -> dict:
+    """{chain: {residue: xyz}} of the C-alpha atoms (ATOM records; auth chain and residue ids)."""
+    keys, out = [], {}
+    with open(path, errors="replace") as fh:
+        for line in fh:
+            if line.startswith("_atom_site."):
+                keys.append(line.split()[0].split(".", 1)[1])
+                continue
+            if not line.startswith("ATOM") or not keys:
+                continue
+            f = line.split()
+            if len(f) != len(keys):
+                continue
+            r = dict(zip(keys, f))
+            if r.get("label_atom_id") != "CA" or r.get("label_alt_id", ".") not in (".", "?", "A"):
+                continue
+            ch = r.get("auth_asym_id", r.get("label_asym_id"))
+            res = r.get("auth_seq_id", r.get("label_seq_id")) + r.get("pdbx_PDB_ins_code", "?").strip("?.")
+            out.setdefault(ch, {})[res] = (float(r["Cartn_x"]), float(r["Cartn_y"]), float(r["Cartn_z"]))
+    return out
+
+
+def chain_operators(path, min_common: int = 20, max_rmsd: float = 1.0) -> tuple:
+    """Rotations about the assembly centroid that superpose the first chain onto every chain.
+
+    For entries that deposit the full assembly (every chain is a copy of one subunit). Chains
+    with fewer than ``min_common`` C-alpha atoms in common with the first chain are skipped (other
+    entities). Returns (S (n, 3, 3), rmsd per chain (A)); requires a rotation group."""
+    ca = _atom_site_ca(path)
+    if not ca:
+        raise ValueError(f"{path}: no C-alpha atoms in _atom_site")
+    chains = list(ca)
+    ref = ca[chains[0]]
+    c = np.array([xyz for d in ca.values() for xyz in d.values()]).mean(axis=0)
+    S, rmsd = [], []
+    for ch in chains:
+        common = [k for k in ref if k in ca[ch]]
+        if len(common) < min_common:
+            continue
+        P = np.array([ref[k] for k in common]) - c
+        Q = np.array([ca[ch][k] for k in common]) - c
+        U, _, Vt = np.linalg.svd(P.T @ Q)                     # Kabsch, rotation only: Q ~ P M^T
+        D = np.diag([1.0, 1.0, np.sign(np.linalg.det(Vt.T @ U.T))])
+        M = Vt.T @ D @ U.T
+        S.append(M)
+        rmsd.append(float(np.sqrt(np.mean(np.sum((P @ M.T - Q) ** 2, axis=1)))))
+    S, rmsd = np.array(S), np.array(rmsd)
+    if rmsd.max() > max_rmsd:
+        raise ValueError(f"{path}: chain superposition rmsd up to {rmsd.max():.2f} A about the centroid "
+                         "(not a symmetric assembly, or an incomplete one)")
+    S = unique_ops(S)
+    if not is_group(S, tol=2e-3):
+        raise ValueError(f"{path}: the {len(S)} chain rotations do not form a group (incomplete assembly?)")
+    return S, rmsd
+
+
 def asu_mask(R: np.ndarray, S: np.ndarray, u: np.ndarray = U_REF) -> np.ndarray:
     """True for orientations whose viewing direction is the representative of its orbit."""
     d = np.asarray(R, dtype=np.float64)[:, 2, :]                 # (n, 3): Rᵀ e_z
@@ -141,11 +200,21 @@ def main(argv=None) -> int:
                     help="template model (full assembly, .cif/.pdb): check that every operator maps "
                          "its atoms onto atoms (median distance < --tol A)")
     ap.add_argument("--tol", type=float, default=0.5)
+    ap.add_argument("--from-chains", action="store_true",
+                    help="derive the rotations by superposing the chains of a deposited full assembly "
+                         "(when _pdbx_struct_oper_list holds only the identity)")
     a = ap.parse_args(argv)
     from . import io as sio
-    S = cif_point_operators(a.model)
+    if a.from_chains:
+        S, rmsd = chain_operators(a.model)
+        print(f"{len(rmsd)} chains superposed on the first: C-alpha rmsd median {np.median(rmsd):.3f} A, "
+              f"max {rmsd.max():.3f} A")
+    else:
+        S = cif_point_operators(a.model)
     sio.write_rotations_file(S, a.out)
     print(f"{len(S)} rotations ({point_group_name(len(S))}), group checked -> {a.out}")
+    if len(S) == 1 and not a.from_chains:
+        print("only the identity is listed: for an entry that deposits the full assembly, use --from-chains")
     if a.assembly:
         from .structure import read_cif_file, read_pdb_file
         rd = read_cif_file if Path(a.assembly).suffix == ".cif" else read_pdb_file

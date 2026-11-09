@@ -8,7 +8,7 @@ import pytest
 from smap import io as sio
 from smap.grid import calculate_search_grid
 from smap.structure import Atoms, electrostatic_potential
-from smap.symmetry import asu_mask, check_assembly, cif_point_operators, is_group, reduce_grid
+from smap.symmetry import asu_mask, chain_operators, check_assembly, cif_point_operators, is_group, reduce_grid
 from smap.utils import crop_or_pad
 
 
@@ -147,3 +147,43 @@ def test_check_assembly():
     assert check_assembly(S, xyz)[:, 0].max() < 0.01
     assert check_assembly([_rot(AXIS, 45.0)], xyz)[0, 0] > 1.0
     assert check_assembly(C4, xyz[:600])[1:, 0].min() > 1.0     # incomplete assembly
+
+
+ATOM_SITE = """data_full
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_seq_id
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.auth_seq_id
+_atom_site.auth_asym_id
+{rows}
+#
+"""
+
+
+def test_chain_operators_full_assembly(tmp_path):
+    """A deposited C4 assembly (4 chains, off-origin centre, only atoms): the 4 rotations back."""
+    rng = np.random.default_rng(7)
+    sub = rng.normal(0, 6, (40, 3)) + np.array([15.0, 3.0, -2.0])
+    centre = np.array([120.0, -40.0, 33.0])
+    rows, n = [], 0
+    for ci, S in enumerate(C4):
+        for k, p in enumerate(sub @ S.T + centre, start=1):
+            for atom in ("N", "CA"):
+                n += 1
+                q = p + (0.5 if atom == "N" else 0.0)
+                rows.append(f"ATOM {n} C {atom} . ALA {'ABCD'[ci]} {k} {q[0]:.3f} {q[1]:.3f} {q[2]:.3f} {k} {'ABCD'[ci]}")
+    f = tmp_path / "full.cif"
+    f.write_text(ATOM_SITE.format(rows="\n".join(rows)))
+    S, rmsd = chain_operators(f)
+    assert S.shape == (4, 3, 3) and is_group(S) and rmsd.max() < 0.01
+    for M in C4:
+        assert min(np.abs(M - N).max() for N in S) < 1e-3

@@ -171,12 +171,34 @@ def _ambient_occlusion(H: np.ndarray, floor: float, radius: int = 24, n_dir: int
     return np.clip(1 - occ / n_dir, 0, 1)
 
 
+def radial_limits(V: np.ndarray, level: float, vox: float, n_dir: int = 1500) -> tuple:
+    """Range (A) of the outer-surface radius, as seen from outside along n_dir directions
+    (0.5th percentile to maximum, so small spikes keep the top colour); the colour scale of
+    ``--color-by radial``."""
+    from scipy.ndimage import map_coordinates
+    n = V.shape[0]
+    c = n // 2
+    k = np.arange(n_dir) + 0.5
+    phi, cos_t = np.pi * (1 + 5 ** 0.5) * k, 1 - 2 * k / n_dir         # Fibonacci sphere
+    sin_t = np.sqrt(1 - cos_t ** 2)
+    d = np.stack([sin_t * np.cos(phi), sin_t * np.sin(phi), cos_t], axis=1)
+    r = np.arange(c - 1, 0, -0.5)                                       # outside -> centre (voxels)
+    p = d[:, None, :] * r[None, :, None] + c                            # (x, y, z) voxel coordinates
+    vals = map_coordinates(V, [p[..., 1].ravel(), p[..., 0].ravel(), p[..., 2].ravel()], order=1)
+    inside = vals.reshape(n_dir, r.size) > level
+    hit = inside.any(axis=1)
+    r_out = r[np.argmax(inside, axis=1)][hit] * vox
+    return (float(np.percentile(r_out, 0.5)), float(r_out.max())) if r_out.size else (0.0, c * vox)
+
+
 def render(W: np.ndarray, level: float, color=BASE, lighting: str = "soft",
-           alpha: float = 0.95, voxel_A: float = 1.5) -> np.ndarray:
+           alpha: float = 0.95, voxel_A: float = 1.5, radial=None) -> np.ndarray:
     """RGBA rendering of {W > level} seen from +z (rows y, cols x) from its height map.
 
     lighting: ``soft`` (ambient occlusion only, as ChimeraX 'lighting soft'), ``simple`` (one
-    diffuse key light + ambient, no highlights), ``flat`` (ambient only). Thin dark silhouette."""
+    diffuse key light + ambient, no highlights), ``flat`` (ambient only). Thin dark silhouette.
+    radial: (r_min_A, r_max_A, colormap) colours the surface by its distance from the volume
+    centre (N//2), as capsids are usually shown; otherwise the single ``color``."""
     from matplotlib.colors import to_rgb
     from scipy.ndimage import binary_erosion, gaussian_filter
     M = W > level
@@ -209,7 +231,17 @@ def render(W: np.ndarray, level: float, color=BASE, lighting: str = "soft",
         shade = np.ones_like(lam)
     else:
         raise ValueError(f"lighting {lighting!r}: soft, simple or flat")
-    col = np.array(to_rgb(color))[None, None] * np.clip(shade, 0.0, 1.15)[..., None]
+    if radial is None:
+        base = np.broadcast_to(np.array(to_rgb(color)), hit.shape + (3,))
+    else:
+        import matplotlib
+        r0, r1, cmap = radial
+        c0 = n // 2
+        yy, xx = np.indices(hit.shape)
+        rad = np.sqrt((xx - c0) ** 2 + (yy - c0) ** 2 + (np.nan_to_num(D, nan=c0) - c0) ** 2) * voxel_A
+        base = matplotlib.colormaps[cmap](np.clip((rad - r0) / max(r1 - r0, 1e-6), 0, 1))[..., :3]
+        base = 0.08 + 0.84 * base if cmap == "turbo" else base               # avoid the darkest ends
+    col = base * np.clip(shade, 0.0, 1.15)[..., None]
     rgba[..., :3] = np.clip(col, 0, 1)
     edge = hit & ~binary_erosion(hit)
     rgba[edge, :3] *= 0.35
@@ -267,6 +299,9 @@ def main(argv=None) -> int:
     ap.add_argument("--micrograph", default=None)
     ap.add_argument("--volume", default=None, help="template potential .mrc (default: *_SP.mrc)")
     ap.add_argument("--color", default=BASE)
+    ap.add_argument("--color-by", default="uniform", choices=("uniform", "radial"),
+                    help="radial: colour by distance from the particle centre (capsids, cages)")
+    ap.add_argument("--cmap", default="turbo", help="colormap for --color-by radial")
     ap.add_argument("--lighting", default="soft", choices=("soft", "simple", "flat"),
                     help="soft = ambient occlusion (ChimeraX 'lighting soft'); simple = one diffuse light")
     ap.add_argument("--render-A", type=float, default=1.5, help="surface voxel (Å); 3-4 for speed")
@@ -349,11 +384,24 @@ def main(argv=None) -> int:
     # close-ups: fine surface; whole micrograph: coarser surface (no sub-pixel detail to alias)
     V, level, vox = prepare_volume(vol, a_vol, a.render_A, a.mass_frac, a.surface_sigma_A)
     box_A = V.shape[0] * vox
-    sprites = {d["id"]: render(rotate_volume(V, d["q"]), level, a.color, a.lighting, voxel_A=vox) for d in det}
+    rlim = radial_limits(V, level, vox) if a.color_by == "radial" else None
+    rad = (*rlim, a.cmap) if rlim else None
+    sprites = {d["id"]: render(rotate_volume(V, d["q"]), level, a.color, a.lighting, voxel_A=vox, radial=rad)
+               for d in det}
     Vo, level_o, vox_o = prepare_volume(vol, a_vol, a.overview_render_A, a.mass_frac, a.overview_sigma_A)
     box_o = Vo.shape[0] * vox_o
-    sprites_o = {d["id"]: render(rotate_volume(Vo, d["q"]), level_o, a.color, a.lighting, voxel_A=vox_o)
-                 for d in det}
+    sprites_o = {d["id"]: render(rotate_volume(Vo, d["q"]), level_o, a.color, a.lighting, voxel_A=vox_o,
+                                 radial=rad) for d in det}
+
+    def radial_bar(fig, ax, orientation="vertical"):
+        if rlim:
+            from matplotlib.cm import ScalarMappable
+            sm = ScalarMappable(norm=Normalize(*rlim), cmap=a.cmap)
+            if orientation == "vertical":
+                fig.colorbar(sm, ax=ax, shrink=0.55, pad=0.015, label="radius (Å)")
+            else:                     # below the panel: keeps the neighbouring panel's axis label clear
+                fig.colorbar(sm, ax=ax, orientation="horizontal", fraction=0.035, pad=0.09, aspect=40,
+                             label="radius (Å)")
     del vol
 
     out.mkdir(parents=True)
@@ -367,6 +415,7 @@ def main(argv=None) -> int:
     ax.set_ylim(ext[2], ext[3])
     scale_bar(ax, 1000.0, ext)
     ax.set_title(title)
+    radial_bar(fig, ax)
     save(fig, out / "poses.png")
     plt.close(fig)
 
@@ -476,7 +525,7 @@ def main(argv=None) -> int:
 
     # ---- summary (README)
     fig = plt.figure(figsize=(19, 6.4))
-    gs = fig.add_gridspec(1, 3, width_ratios=[1, 1.12, 1.35], wspace=0.08)
+    gs = fig.add_gridspec(1, 3, width_ratios=[1, 1.12, 1.35], wspace=0.16)
     ax1 = fig.add_subplot(gs[0, 0])
     show_micrograph(ax1, disp, ext)
     draw_poses(ax1, sprites_o, det, box_o)
@@ -484,6 +533,7 @@ def main(argv=None) -> int:
     ax1.set_ylim(ext[2], ext[3])
     scale_bar(ax1, 1000.0, ext)
     ax1.set_title(f"{a.label}: {len(det)} poses (final score ≥ {a.cutoff:g})")
+    radial_bar(fig, ax1, "horizontal")
     ax2 = fig.add_subplot(gs[0, 1])
     zpanel(ax2)
     ax2.set_title(f"search z-score (cyan contour: {a.cutoff:g})")
@@ -497,6 +547,7 @@ def main(argv=None) -> int:
                 label=a.label, n_refined=len(parts), n_detected=len(det), a_orig=a_orig, a_search=a_search,
                 render_A=vox, surface_sigma_A=a.surface_sigma_A, overview_render_A=vox_o,
                 overview_sigma_A=a.overview_sigma_A, zmap_bin_A=zb * a_search, lighting=a.lighting,
+                color_by=a.color_by, radial_limits_A=rlim,
                 mass_frac=a.mass_frac, iso_level=level, display_bin_px=b,
                 landscape_bin_px=lb, analysis_mask=float(np.mean(keep)),
                 detections=[dict(id=d["id"], score=d["score"], x_A=round(d["xA"], 1), y_A=round(d["yA"], 1),

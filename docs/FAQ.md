@@ -280,6 +280,16 @@ cisTEM search, take its settings from the database (`TEMPLATE_MATCH_LIST`), whic
 python -m smap.symmetry MODEL.cif --out ops.txt --assembly MODEL-assembly1.cif
 ```
 
+Worked example: [`examples/aav2_capsid/`](../examples/aav2_capsid) (60 rotations, 38,200 of about
+2.3 M orientations at 1.88°).
+
+Many cryo-EM entries deposit the full assembly and list only the identity operator ("1 rotations").
+Derive the rotations from the chains instead, and check them against the same model:
+
+```
+python -m smap.symmetry MODEL.cif --from-chains --assembly MODEL.cif --out ops.txt
+```
+
 ---
 
 ## 11. Folder layout

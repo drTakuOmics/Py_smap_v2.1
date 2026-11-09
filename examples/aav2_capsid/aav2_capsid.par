@@ -1,0 +1,31 @@
+# AAV2 L336C capsid (EMPIAR-10202), template = PDB 6E9D (60 chains, ATOM records only), icosahedral reduction.
+# imageFile, defocus, V_acc, Cs and outputDir are set per micrograph by tools/star_to_pars.py;
+# structureFile and symmetryFile are set there with --set (see README.md).
+function search_global
+nCores 1
+imageFile /placeholder.mrc
+structureFile /placeholder/6E9D.cif
+modelName AAV2_6E9D
+symmetryFile /placeholder/6E9D_I.txt
+outputDir /placeholder
+aPerPix 0.788
+defocus 0 0 0
+defocus_format CTFFind
+aPerPix_search 1.5
+angle_inc 1.88
+# sample thickness and defocus step (nm): 5 planes over 80 nm
+T_sample 80
+df_inc 20
+V_acc 300000.0
+Cs 0.0027
+Cc 0.0027
+deltaE 0.7
+a_i 0.000050
+optThr 7.0
+qThr 10
+dThr 10
+inc_degrees 0.5
+arbThr 6.0
+keep_scratch_flag 0
+# edge margin in search pixels (1.5 A): about one capsid radius (125 A)
+margin_pix 84

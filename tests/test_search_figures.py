@@ -94,3 +94,24 @@ def test_search_figures_smoke(tmp_path):
         assert (out / f).stat().st_size > 0
     meta = json.loads((out / "figures.json").read_text())
     assert meta["n_detected"] == 1 and meta["n_refined"] == 2
+    out2 = tmp_path / "fig_radial"
+    assert mod.main([str(res), "--cutoff", "7.5", "--out", str(out2), "--color-by", "radial",
+                     "--render-A", "4", "--display-bin-A", "4", "--landscape-bin-A", "12"]) == 0
+    assert json.loads((out2 / "figures.json").read_text())["radial_limits_A"] is not None
+
+
+def test_radial_colouring_follows_the_radius():
+    """A shell with a bump: the outer-surface range spans shell to bump, the bump is the reddest."""
+    mod = _tool()
+    n = 64
+    g = np.arange(n) - n // 2
+    yy, xx, zz = np.meshgrid(g, g, g, indexing="ij")
+    r = np.sqrt(xx ** 2 + yy ** 2 + zz ** 2)
+    V = ((r > 14) & (r < 20)).astype(np.float32)
+    V[(np.hypot(xx, yy) < 4) & (zz > 15) & (zz < 26)] = 1.0              # spike along +z
+    lo, hi = mod.radial_limits(V, 0.5, 1.0)
+    assert 18 <= lo <= 21 and 23 <= hi <= 26
+    rgba = mod.render(V, 0.5, lighting="flat", voxel_A=1.0, radial=(lo, hi, "turbo"))
+    c = n // 2
+    spike, rim = rgba[c, c, :3], rgba[c, c + 12, :3]
+    assert spike[0] > spike[2] and rim[2] > rim[0]                      # spike red-ish, shell blue-ish
