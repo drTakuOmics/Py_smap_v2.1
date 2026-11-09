@@ -106,12 +106,33 @@ python tools/match_positions.py $R $AAV/pars/coords/$(basename $R).csv
 python tools/search_figures.py $R --cutoff $C --volume $SP --label "AAV2 (6E9D)" --color-by radial --out $AAV/figures/$(basename $R)
 ```
 
-**7. More micrographs** (resumable queue; `--top 50`: the 50 micrographs with the most particles):
+**7. What the search compares** (CPU, about a minute): the templates of this search along a 5-, 3- and
+2-fold axis, before and after the CTF and the whitening filter, from the search's own setup:
+
+```
+python tools/template_views.py $P --label "AAV2 (6E9D)" --out $AAV/figures/template_views.png
+```
+
+**8. More micrographs** (resumable queue; `--top 50`: the 50 micrographs with the most particles):
 
 ```
 python tools/star_to_pars.py $STAR --template examples/aav2_capsid/aav2_capsid.par --micrograph-dir $AAV/micrographs --out-dir $AAV/pars50 --results-dir $AAV/results --top 50 --rename '_st_Stk_corrected\.mrc$=-a-DW_magcorrect.mrc' --url-prefix $URL --set structureFile=$SP --set symmetryFile=$AAV/models/6E9D_I.txt
 nohup bash -c "wget -q -nc -P $AAV/micrographs -i $AAV/pars50/download_urls.txt; BATCH=8 bash examples/decolace_tric/run_queue.sh $AAV/pars50/jobs.txt" > $AAV/batch50.log 2>&1 &
 ```
+
+## What the search compares
+
+![Templates along the 5-, 3- and 2-fold axes, as searched](results/figures/template_views.png)
+
+For every orientation of the reduced grid the search projects the potential (top row), multiplies
+the projection by the CTF of each defocus plane (middle row: contrast inverted and fringes from the
+oscillating CTF) and by the whitening filter computed from the micrograph's own spectrum (bottom row:
+noise flattened across frequencies, which raises the weight of high-resolution detail), normalises it
+and cross-correlates it with the whitened micrograph. At each pixel, the maximum over orientations and
+defocus planes, minus the mean and divided by the standard deviation of all correlation values at
+that pixel, is the z-score map of the summary figure. A capsid seen along a symmetry axis shows that symmetry in its projection; with the
+icosahedral reduction each distinct projection is computed once (38,200 orientations instead of
+about 2.3 M).
 
 ## Results (first micrograph)
 
@@ -138,10 +159,11 @@ filtering). Two of them (7.6 and 8.3) are close to the cutoff.
 |---|---|
 | `aav2_capsid.par` | common search settings |
 | `results/figures/summary.png`, `poses_pairs.png`, `zmap.png` | figures of the first micrograph (`tools/search_figures.py --color-by radial`) |
+| `results/figures/template_views.png` | templates along the symmetry axes, as searched (`tools/template_views.py`) |
 | `results/match_00007ed3.csv` | every detection of the first micrograph with its paired published particle and distance |
 
 Tools used: `smap.symmetry --from-chains`, `tools/star_to_pars.py`, `tools/ctf_check.py`,
-`tools/radial_scan.py`, `tools/match_positions.py`, `tools/search_figures.py`. Problems and fixes:
+`tools/radial_scan.py`, `tools/match_positions.py`, `tools/search_figures.py`, `tools/template_views.py`. Problems and fixes:
 [`docs/FAQ.md`](../../docs/FAQ.md).
 
 ## References

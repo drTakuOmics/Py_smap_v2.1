@@ -187,3 +187,29 @@ def test_chain_operators_full_assembly(tmp_path):
     assert S.shape == (4, 3, 3) and is_group(S) and rmsd.max() < 0.01
     for M in C4:
         assert min(np.abs(M - N).max() for N in S) < 1e-3
+
+
+def test_template_views(tmp_path):
+    """tools/template_views.py: axes of each rotation order, a view along the C4 axis, and a figure."""
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location("template_views", Path(__file__).resolve().parents[1]
+                                                  / "tools" / "template_views.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    ax = mod.symmetry_axes(C4)
+    assert sorted(ax) == [2, 4] and abs(abs(ax[4] @ AXIS / np.linalg.norm(AXIS)) - 1) < 1e-6
+    R = mod.view_rotation(AXIS)
+    assert np.allclose(R @ R.T, np.eye(3)) and np.isclose(np.linalg.det(R), 1)
+    assert np.allclose(R[2], AXIS / np.linalg.norm(AXIS))
+    sio.mw(_c4_volume(), tmp_path / "vol.mrc", 2.0)
+    sio.mw(np.random.default_rng(0).standard_normal((96, 96)).astype(np.float32), tmp_path / "img.mrc", 2.0)
+    ops = tmp_path / "ops.txt"
+    sio.write_rotations_file(C4, ops)
+    par = tmp_path / "s.par"
+    par.write_text("function search_global\nnCores 1\n"
+                   f"imageFile {tmp_path / 'img.mrc'}\nstructureFile {tmp_path / 'vol.mrc'}\n"
+                   f"outputDir {tmp_path / 'out'}\naPerPix 2.0\ndefocus 15000.0 14000.0 30.0\n"
+                   f"angle_inc 20\nT_sample 40\ndf_inc 20\narbThr 4.0\nsymmetryFile {ops}\n")
+    assert mod.main([str(par), "--out", str(tmp_path / "views.png")]) == 0
+    assert (tmp_path / "views.png").stat().st_size > 0 and not (tmp_path / "out").exists()
