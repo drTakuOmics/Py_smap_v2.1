@@ -37,6 +37,7 @@ ROWS = [
 
 
 def progress(log: Path) -> str:
+    """Last progress found at the end of a log: percentage searched, or the refinement line."""
     if not log.exists():
         return ""
     tail = log.read_bytes()[-4000:].decode("utf-8", "replace").splitlines()
@@ -50,6 +51,7 @@ def progress(log: Path) -> str:
 
 
 def state(folder: Path, jobs: Path | None) -> tuple:
+    """(state, detail) of one search folder, or of all searches of a job list (n done of N)."""
     if jobs is not None:
         if not jobs.exists():
             return "not prepared", ""

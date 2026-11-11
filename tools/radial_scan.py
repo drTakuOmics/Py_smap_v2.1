@@ -68,6 +68,7 @@ def wavelength_A(V: float) -> float:
 
 
 def par_value(text: str, key: str):
+    """Values of one key in the text of a .par file (None if the key is absent)."""
     m = re.search(rf"^{key}\s+(.+)$", text, re.M)
     return m.group(1).split() if m else None
 
@@ -91,6 +92,9 @@ class Scanner:
     """Whitened, binned image and the radial template; score() evaluates one setting."""
 
     def __init__(self, im, pix, profile, Cs_A, V, ang=0.0, amp=0.07, bin_=2, thr=8.0, sep_A=None, lowpass_A=None):
+        """Prepare the image once: drop zero padding, clip outliers, low-pass and decimate by bin_,
+        whiten by the radially averaged spectrum. profile = (radii in A, rotational average of the
+        projected potential, particle radius in A)."""
         r_A, prof, R = profile
         a = np.asarray(im, dtype=np.float64)
         nz = np.argwhere(a != 0)                                   # drop zero padding
@@ -127,6 +131,8 @@ class Scanner:
         self.inner[e:-e, e:-e] = True
 
     def ctf(self, k, df1, df2):
+        """CTF at spatial frequency k (1/A) for df1, df2 (A), with the scanner's astigmatism angle
+        and amplitude contrast."""
         df = 0.5 * (df1 + df2 + (df1 - df2) * np.cos(2 * (self.alpha - self.ang)))
         chi = np.pi * self.lam * df * k ** 2 - 0.5 * np.pi * self.Cs * self.lam ** 3 * k ** 4
         return -(math.sqrt(1 - self.amp ** 2) * np.sin(chi) + self.amp * np.cos(chi))
@@ -156,6 +162,8 @@ class Scanner:
 
 
 def coarse(sc: Scanner, df1: float, df2: float) -> dict:
+    """Coarse scans for both contrast signs. A: pixel-size scale at the given defocus;
+    B: mean defocus at scale 1; C: pixel-size scale without CTF (40 A low-pass)."""
     h = (df1 - df2) / 2
     res = {}
     for sign, _ in SIGNS:
@@ -166,6 +174,8 @@ def coarse(sc: Scanner, df1: float, df2: float) -> dict:
 
 
 def fine(sc: Scanner, df1: float, df2: float, sign: int, lo=0.92, hi=1.08, step=0.004) -> dict:
+    """Fine scan of the pixel-size scale s (defocus scaled by s^2), refined by a parabola through
+    the three best points, then a scan of a defocus offset at the best scale."""
     S = np.arange(lo, hi + step / 2, step)
     m_s = np.array([sc.score(s, df1 * s * s, df2 * s * s, sign)[0] for s in S])
     i = int(np.nanargmax(m_s))
@@ -181,6 +191,8 @@ def fine(sc: Scanner, df1: float, df2: float, sign: int, lo=0.92, hi=1.08, step=
 
 
 def read_map(path: Path, vox=None, fallback=None):
+    """A 3D map and its voxel size (header, --map-pixel, or the fallback), with clear errors for
+    atomic models and missing files."""
     import mrcfile
     from smap import io as sio
     path = Path(path)
@@ -201,6 +213,8 @@ def read_map(path: Path, vox=None, fallback=None):
 
 
 def from_folder(f: Path, map_override=None) -> dict:
+    """Inputs from a pysmap search folder: search image, pixel sizes, defocus (A, A, smap angle
+    in rad), Cs, voltage and the template potential."""
     from smap import io as sio
     if not (f / "search_status.json").exists():
         raise SystemExit(f"{f}: no search_status.json (not a finished pysmap search folder)")
@@ -231,6 +245,7 @@ def from_folder(f: Path, map_override=None) -> dict:
 
 
 def from_args(a) -> dict:
+    """The same inputs from the command line (--image, --map, --pixel, --defocus, --cs, --kv)."""
     from smap import io as sio
     d = list(a.defocus)
     if len(d) == 1:
@@ -243,6 +258,7 @@ def from_args(a) -> dict:
 
 
 def write_peaks(path: Path, sc: Scanner, pos, z, it: dict, s, df1, df2, sign) -> None:
+    """Peaks as CSV in original micrograph pixels, with the fitted pixel size, defocus and contrast."""
     b, (r0, c0) = sc.b, sc.crop
     with open(path, "w", newline="") as fh:
         w = csv.writer(fh)
@@ -257,6 +273,7 @@ def write_peaks(path: Path, sc: Scanner, pos, z, it: dict, s, df1, df2, sign) ->
 
 
 def show_image(ax, sc: Scanner, pos, title: str, plt, s: float = 1.0) -> None:
+    """The binned image with a circle of the particle radius at every peak."""
     disp = ndimage.gaussian_filter(sc.img, 2)
     lo, hi = np.percentile(disp, [1, 99])
     ax.imshow(disp, cmap="gray", vmin=lo, vmax=hi)

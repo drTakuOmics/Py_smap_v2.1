@@ -120,6 +120,34 @@ python tools/star_to_pars.py $STAR --template examples/aav2_capsid/aav2_capsid.p
 nohup bash -c "wget -q -nc -P $AAV/micrographs -i $AAV/pars50/download_urls.txt; BATCH=8 bash examples/decolace_tric/run_queue.sh $AAV/pars50/jobs.txt" > $AAV/batch50.log 2>&1 &
 ```
 
+**9. Export the detections** as one RELION STAR file with normalised particle stacks. Duplicate
+detections of the same capsid are removed, micrographs with overlapping layers of capsids are left
+out, and the orientations are compared with the published ones (modulo the 60 symmetry operators):
+
+```
+python tools/export_detections.py $AAV/results/*/ --out-dir $AAV/export --diameter-A 250 --reference-dir $AAV/pars50/coords
+```
+
+**10. Check the export** before cryoSPARC or RELION (CPU, 10–15 minutes): a reconstruction from
+the STAR file with RELION's conventions, compared with the template. `--symmetry` inserts every image
+at its 60 equivalent orientations; without it the map of a symmetric search has streaks, because all
+orientations of the search lie in one asymmetric unit ([FAQ](../../docs/FAQ.md) 11.2).
+
+```
+python tools/check_reconstruction.py $AAV/export/particles.star --template $SP --symmetry $AAV/models/6E9D_I.txt --diameter-A 250 --max-particles 500 --out $AAV/export/check
+```
+
+**11. Symmetry expansion and import.** Each particle is written 60 times, at its equivalent
+orientations, in the frame of 6E9D:
+
+```
+python tools/expand_symmetry.py $AAV/export/particles.star $AAV/models/6E9D_I.txt -o $AAV/export/particles_expanded.star
+```
+
+In cryoSPARC: Import Particle Stack with `particles_expanded.star` and the folder `$AAV/export/stacks`
+as particle data path, then Homogeneous Reconstruction Only in C1 (the symmetry is already in the
+expanded orientations). Start a new import job whenever the STAR file changes.
+
 ## What the search compares
 
 ![Templates along the 5-, 3- and 2-fold axes, as searched](results/figures/template_views.png)
@@ -147,11 +175,32 @@ Micrograph `17aug31d_00001sq_v01_00002hl_00007ed3`, 61 particles in the publishe
 | Detections not in the published list | 37 (35 above 10) |
 | Position difference to the published centres | 0.0 / −0.1 Å (x / y), SD 0.1 / 0.2 Å |
 
-The detections outside the published list are almost all far above the cutoff: capsids that were not
-kept in the published particle set (78,194 picked, 30,515 kept after 2D classification and score
-filtering). Two of them (7.6 and 8.3) are close to the cutoff.
+The detections outside the published list are almost all far above the cutoff. Most are capsids that
+were not kept in the published particle set (78,194 picked, 30,515 kept after 2D classification and
+score filtering); some are second detections of a capsid already found, at another orientation
+([FAQ](../../docs/FAQ.md) 6.4). Two detections (7.6 and 8.3) are close to the cutoff.
 
 ![Micrograph patch and template at the found pose](results/figures/poses_pairs.png)
+
+## Results (50 micrographs)
+
+The 50 micrographs with the most published particles, same settings; about 18 minutes per micrograph
+on one RTX 3090 (3.5 minutes of search, the rest refinement of the candidates).
+
+| | |
+|---|---|
+| Published particles found | 2,615 of 2,621 (99.8%); the 6 missed are on one micrograph |
+| Position difference to the published centres | −0.04 / −0.05 Å (x / y); SD per micrograph 0.19 / 0.20 Å (median) |
+| Orientation difference to the published angles | median 0.45°, 90th percentile 0.71°, 99% below 2° (2,615 particles) |
+| Detections | 5,221; 451 are duplicates of a capsid already found, leaving 4,770 capsids |
+| Detections not in the published list | 2,606 (2,481 above 10), duplicates included |
+| Micrographs with overlapping layers of capsids | 3 (268–362 detections each), left out of the export |
+| Exported for reconstruction | 3,908 particles from 47 micrographs (512 px boxes, 0.788 Å/px) |
+| Reconstruction check, 2,000 particles in C1 at 3 Å/px | capsid shell, half-maps agree to 6.1 Å; correlation with the template 0.51, with the streaks expected without symmetry expansion |
+
+The particle patches of a search hold the micrograph values as recorded (here mean 3.9, SD 0.08).
+Reconstructed without normalisation they give a featureless ball (correlation with the template
+0.04); the export normalises them ([FAQ](../../docs/FAQ.md) 11.1).
 
 ## Files
 
@@ -163,8 +212,9 @@ filtering). Two of them (7.6 and 8.3) are close to the cutoff.
 | `results/match_00007ed3.csv` | every detection of the first micrograph with its paired published particle and distance |
 
 Tools used: `smap.symmetry --from-chains`, `tools/star_to_pars.py`, `tools/ctf_check.py`,
-`tools/radial_scan.py`, `tools/match_positions.py`, `tools/search_figures.py`, `tools/template_views.py`. Problems and fixes:
-[`docs/FAQ.md`](../../docs/FAQ.md).
+`tools/radial_scan.py`, `tools/match_positions.py`, `tools/search_figures.py`, `tools/template_views.py`,
+`tools/export_detections.py`, `tools/check_reconstruction.py`, `tools/expand_symmetry.py`
+(overview: [`tools/README.md`](../../tools/README.md)). Problems and fixes: [`docs/FAQ.md`](../../docs/FAQ.md).
 
 ## References
 

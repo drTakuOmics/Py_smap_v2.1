@@ -63,6 +63,8 @@ def read_star_loop(path, filename):
 
 
 def get_defocus(args, image_name):
+    """Defocus U, V and angle from the STAR row of the image, or from the explicit options
+    (one or the other, not both)."""
     if args.star:
         row = read_star_loop(args.star, image_name)
         needed = ["_rlnDefocusU", "_rlnDefocusV", "_rlnDefocusAngle"]
@@ -79,6 +81,8 @@ def get_defocus(args, image_name):
 
 
 def prepare(args):
+    """'prepare': validate the inputs, cut the tile from the micrograph and write the pilot
+    folder (tile image, search.par and a record of every setting)."""
     import mrcfile
     import numpy as np
 
@@ -114,7 +118,7 @@ def prepare(args):
         header_apix = float(src.voxel_size.x)
         if header_apix > 0 and abs(header_apix - args.apix) / args.apix > 0.01:
             raise ValueError(f"Pixel size conflict: MRC {header_apix:.4f}, --apix {args.apix:.4f}")
-        crop = np.array(src.data[y0:y0 + args.size, x0:x0 + args.size], dtype=np.float32)
+        crop = np.array(src.data[y0 : y0 + args.size, x0 : x0 + args.size], dtype=np.float32)
     if not np.isfinite(crop).all() or np.std(crop) == 0:
         raise ValueError("Crop has invalid pixels or no variance")
 
@@ -125,27 +129,44 @@ def prepare(args):
     shutil.copy2(model, out / model.name)
     (out / "output").mkdir()
     lines = [
-        "function search_global", "nCores 1",
-        "imageFile /work/tile.mrc", f"modelFile /work/{model.name}",
-        "bFactor 0", "outputDir /work/output",
+        "function search_global",
+        "nCores 1",
+        "imageFile /work/tile.mrc",
+        f"modelFile /work/{model.name}",
+        "bFactor 0",
+        "outputDir /work/output",
         f"aPerPix {args.apix:g}",
         f"defocus {defocus[0]:.3f} {defocus[1]:.3f} {defocus[2]:.3f}",
         f"aPerPix_search {args.search_apix:g}",
         f"angle_inc {args.angle_inc:g}",
-        f"T_sample {args.thickness:g}", f"df_inc {args.df_inc:g}",
-        f"V_acc {args.voltage_kv * 1000:g}", f"Cs {args.cs_mm / 1000:g}",
-        "Cc 0.0027", "deltaE 0.7", "a_i 0.000050",
-        "optThr 7.0", "qThr 10", "dThr 10",
-        "range_degrees 2.0", "inc_degrees 0.5",
-        "arbThr 6.0", "keep_scratch_flag 0", f"margin_pix {args.margin}",
+        f"T_sample {args.thickness:g}",
+        f"df_inc {args.df_inc:g}",
+        f"V_acc {args.voltage_kv * 1000:g}",
+        f"Cs {args.cs_mm / 1000:g}",
+        "Cc 0.0027",
+        "deltaE 0.7",
+        "a_i 0.000050",
+        "optThr 7.0",
+        "qThr 10",
+        "dThr 10",
+        "range_degrees 2.0",
+        "inc_degrees 0.5",
+        "arbThr 6.0",
+        "keep_scratch_flag 0",
+        f"margin_pix {args.margin}",
     ]
     (out / "search.par").write_text("\n".join(lines) + "\n")
     manifest = dict(
-        source_micrograph=str(micrograph.resolve()), model=str(model.resolve()),
-        crop_origin_xy=[x0, y0], crop_center_xy=[args.center_x, args.center_y],
-        crop_shape_yx=[args.size, args.size], source_shape_yx=[height, width],
-        pixel_size_angstrom=args.apix, mrc_header_pixel_size_angstrom=header_apix,
-        defocus_angstrom_angular_degrees=defocus, star_row=row,
+        source_micrograph=str(micrograph.resolve()),
+        model=str(model.resolve()),
+        crop_origin_xy=[x0, y0],
+        crop_center_xy=[args.center_x, args.center_y],
+        crop_shape_yx=[args.size, args.size],
+        source_shape_yx=[height, width],
+        pixel_size_angstrom=args.apix,
+        mrc_header_pixel_size_angstrom=header_apix,
+        defocus_angstrom_angular_degrees=defocus,
+        star_row=row,
         coordinate_note="original x,y = SMAP tile x,y + crop_origin_xy (check SMAP origin convention)",
         caveat="Coarse orientation search is for timing and candidate recovery only.",
     )

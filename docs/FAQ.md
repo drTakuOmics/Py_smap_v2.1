@@ -1,12 +1,22 @@
 # Troubleshooting and FAQ
 
-Common problems when running 2D template matching with pysmap, most of them met on cellular
-lamellae (DeCo-LACE tiles, EMPIAR-11063). Each entry gives the symptom, the cause, the fix and, where
-useful, the command.
+Problems met when running 2D template matching with pysmap, on cellular lamellae (DeCo-LACE tiles,
+EMPIAR-11063) and on purified particles (AAV2 capsids, EMPIAR-10202). Each entry gives the symptom,
+the cause and the fix, with the command where one applies.
+
+| | Section | | Section |
+|---|---|---|---|
+| 1 | [Running long jobs](#1-running-long-jobs) | 7 | [False positives from image artifacts](#7-false-positives-from-image-artifacts) |
+| 2 | [Input data](#2-input-data) | 8 | [Controls](#8-controls) |
+| 3 | [Parameter (`.par`) files](#3-parameter-par-files) | 9 | [Angular sampling](#9-angular-sampling) |
+| 4 | [CTF and pixel size](#4-ctf-and-pixel-size) | 10 | [Symmetric templates](#10-symmetric-templates) |
+| 5 | [GPU memory](#5-gpu-memory) | 11 | [Reconstruction from the detections](#11-reconstruction-from-the-detections) |
+| 6 | [Scores, thresholds and false positives](#6-scores-thresholds-and-false-positives) | 12 | [Folder layout](#12-folder-layout) |
 
 Commands are run from the repository folder; the helper scripts are in
-[`examples/decolace_tric/`](../examples/decolace_tric) and [`tools/`](../tools).
-Data and results live in a working folder outside the repository; set it once per shell:
+[`examples/decolace_tric/`](../examples/decolace_tric) and [`tools/`](../tools) (overview:
+[`tools/README.md`](../tools/README.md)). Data and results live in a working folder outside the
+repository; set it once per shell:
 
 ```
 export PYSMAP=/path/to/Py_smap_v2.1      # repository clone
@@ -65,6 +75,11 @@ nohup bash -c 'while kill -0 PID 2>/dev/null; do sleep 300; done; NEXT_COMMAND' 
 
 ### 1.7 `No module named smap`
 Run from the repository folder, in the `pysmap` environment (see the top of this page).
+
+### 1.8 `error: argument --dest: expected one argument`
+- **Cause:** the command uses a shell variable such as `$WORK` that is not set in this terminal, so
+  the option receives nothing. Variables set with `export` last only for the terminal they were set in.
+- **Fix:** set the variable again (top of this page) or write the folder in its place.
 
 ---
 
@@ -210,6 +225,19 @@ python examples/decolace_tric/make_controls.py --dest $WORK --phaserand 00463 00
 python examples/decolace_tric/tric_report.py --dest $WORK --strict 7.8
 ```
 
+### 6.4 The same particle is reported twice
+- **Symptom:** two detections a few Å apart, both with high scores and different orientations.
+- **Cause:** clustering merges candidates only if they are within `dThr` (10 Å) and within `qThr`
+  (10°) in orientation. A second orientation of the same particle more than 10° away survives
+  refinement as a separate detection; symmetric particles, with near-equivalent orientations, make this
+  common (AAV2 on EMPIAR-10202: 451 of 5,221 detections on 50 micrographs).
+- **Fix:** before counting or reconstructing, keep the best-scoring detection within a fraction of the
+  particle diameter. A particle present twice can end up in both half-maps and inflate the FSC.
+
+```
+python tools/export_detections.py RESULTS/*/ --out-dir EXPORT --diameter-A 250
+```
+
 ---
 
 ## 7. False positives from image artifacts
@@ -224,6 +252,16 @@ python examples/decolace_tric/tric_report.py --dest $WORK --strict 7.8
 ```
 python examples/decolace_tric/make_controls.py --dest $WORK --filled 00520
 ```
+
+### 7.2 More detections than fit in one layer
+- **Symptom:** a few micrographs with several times the usual number of detections, all with high
+  scores (AAV2: 270–360 detections on 3 of 50 micrographs, about 90 on the others).
+- **Cause:** several layers of particles in thick ice. The detections are real, but particles overlap
+  in projection, so each particle image also contains its neighbours.
+- **Check:** pairs of detections closer than about 0.8 particle diameters; a single layer has almost
+  none (AAV2: 0–53 pairs per micrograph, 320–640 on the three).
+- **Fix:** count them, but leave such micrographs out of reconstructions (`export_detections.py`
+  `--max-overlap`, pairs per detection; default 0.5).
 
 ---
 
@@ -292,7 +330,68 @@ python -m smap.symmetry MODEL.cif --from-chains --assembly MODEL.cif --out ops.t
 
 ---
 
-## 11. Folder layout
+## 11. Reconstruction from the detections
+
+A search gives position, orientation and defocus of every detection, which is all a reconstruction
+needs. The steps, each with its check:
+
+| Step | Tool | Check |
+|---|---|---|
+| Export particles | `tools/export_detections.py` | duplicates removed (6.4), crowded micrographs left out (7.2), orientations against a reference list if there is one |
+| Reconstruct locally | `tools/check_reconstruction.py` | the map shows the template's features |
+| Symmetric search only: expand | `tools/expand_symmetry.py` | no streaks in the check map (11.2) |
+| Import | cryoSPARC or RELION, C1 | a new import job whenever the STAR file changes |
+
+Worked example with all commands: [`examples/aav2_capsid/`](../examples/aav2_capsid).
+
+### 11.1 The reconstruction is a featureless ball
+
+- **Symptom:** cryoSPARC (Homogeneous Reconstruction Only) or RELION gives a smooth or noisy ball the
+  size of the box window, with no features; the particle thumbnails look uniform.
+- **Cause:** the particle images are not normalised. The patches in `particles.mrc` are cut from the
+  micrograph as recorded: a dose-weighted sum has a mean far above its noise (AAV2: mean 3.9, SD 0.08).
+  The soft circular window applied to each image during reconstruction turns that mean into a bright
+  disk in every image, and the disks back-project into a ball that hides the particle.
+- **Fix:** export with `tools/export_detections.py`. It writes normalised stacks (background mean 0,
+  SD 1) and prints the image mean and SD before normalisation.
+- **Check before cryoSPARC:** `tools/check_reconstruction.py` reconstructs from the STAR file with
+  RELION's conventions, independently of the search code, and compares the map with the template.
+  `--compare-raw` also reconstructs the same particles without normalisation.
+
+```
+python tools/check_reconstruction.py EXPORT/particles.star --template SP.mrc --diameter-A 250 --compare-raw --out EXPORT/check
+```
+
+- **Reading it:** the template's features in the slices of the map and a positive correlation with the
+  template mean that orientations and images are consistent. In the tool's tests the correlation is
+  0.98 with the right orientations and 0.55 with the inverse rotations, which keep only the radial
+  profile. A negative correlation means inverted contrast.
+- **Example** (AAV2, 2,000 particles, C1): correlation 0.04 from the images as recorded (ball), 0.51
+  after normalisation (capsid shell, half-map resolution 6.1 Å, with the streaks of 11.2).
+
+### 11.2 Streaks along one direction after a search with `symmetryFile`
+
+- **Symptom:** the map has the particle's shell but is smeared along one direction (streaks in the
+  slices and projections). The half-maps agree, but the correlation with the template is low.
+- **Cause:** the reduced grid keeps one asymmetric unit, so every reported orientation has its viewing
+  direction in the same 1/|G| of the sphere (1/60 for icosahedral symmetry). All images are then
+  slices near one plane of Fourier space, and the cone around the common viewing direction stays
+  empty in a C1 reconstruction, like the missing wedge of a tomogram.
+- **Fix:** symmetry expansion with the operators of the search. Each particle is written |G| times,
+  at its equivalent orientations; reconstruct the expanded file in C1. This works in the template's
+  frame and does not depend on the reconstruction program's convention for the symmetry axes.
+
+```
+python tools/expand_symmetry.py EXPORT/particles.star OPS.txt -o EXPORT/particles_expanded.star
+python tools/check_reconstruction.py EXPORT/particles.star --template SP.mrc --symmetry OPS.txt --max-particles 500 --out EXPORT/check_sym
+```
+
+- **Check:** in the tool's tests (tetrahedral particle, orientations from one asymmetric unit) the
+  correlation with the template rises from 0.78 in C1 to 0.98 with `--symmetry`.
+
+---
+
+## 12. Folder layout
 
 | Content | Location |
 |---|---|

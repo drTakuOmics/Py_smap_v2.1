@@ -23,7 +23,6 @@ import argparse
 import csv
 import importlib.util
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -35,10 +34,12 @@ BLUE, ORANGE, AQUA, YELLOW, RED = "#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#
 
 
 def rows(p: Path) -> list:
+    """Rows of a CSV file ([] if it does not exist)."""
     return list(csv.DictReader(open(p))) if p.exists() else []
 
 
 def tile_key(stem: str) -> str:
+    """Five-digit tile number in a file stem."""
     m = re.search(r"_(\d{5})_", stem)
     return m.group(1) if m else stem[:12]
 
@@ -71,11 +72,13 @@ def noise_expected(folder: Path, cut: float) -> float:
     u, xi, s = tail["u"], tail["shape"], tail["scale"]
 
     def surv(z):
+        """Survival function of the fitted generalised Pareto tail at z."""
         return np.exp(-(z - u) / s) if abs(xi) < 1e-6 else max(1 + xi * (z - u) / s, 1e-300) ** (-1 / xi)
     return float(surv(cut) / surv(c1))
 
 
 def finished(folder: Path) -> bool:
+    """True once the search folder has a .done marker or a search_status.json."""
     return (folder / ".done").exists() or (folder / "search_status.json").exists()
 
 
@@ -93,6 +96,7 @@ def clean_hits(folder: Path, cut: float, tile: dict | None, rev, sio) -> tuple:
 
 
 def match_count(a: np.ndarray, b: np.ndarray, r: float = 20.0) -> int:
+    """Number of one-to-one pairs of positions closer than r (greedy, closest first)."""
     if not len(a) or not len(b):
         return 0
     D = np.linalg.norm(a[:, None] - b[None], axis=2)
@@ -322,6 +326,7 @@ def main(argv=None) -> int:
     fig.tight_layout()
     fig.savefig(out / f"tric_report{sfx}.png", dpi=180, bbox_inches="tight", facecolor="white")
     def two(r, k1, k2):
+        """'a/b' from two columns of a row ('' when the first is empty)."""
         return f"{r[k1]}/{r[k2]}" if r[k1] != "" else ""
     print(f"counts as  >= {cut:.2f} / >= {a.strict:g}")
     print(f"{'tile':>6s} {'TRiC':>7s} {'noise meas':>10s} {'open':>7s} {'decoy':>7s} {'on LSU':>6s} {'chance':>6s}")

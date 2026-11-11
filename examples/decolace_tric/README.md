@@ -79,9 +79,12 @@ python examples/decolace_tric/tric_summary.py --dest $WORK
 zones, and tests TRiC detections for overlap with ribosomes and pose coherence. `tric_report.py`
 counts detections per tile for TRiC, open state, decoy and noise at two cutoffs: the per-tile
 one-false-positive cutoff of the search, and a cutoff set from the phase-randomised tiles
-(`--strict`). `tric_summary.py` collects everything, including the picked templates of the closed and
-open states on the same tiles, in `$WORK/report/index.html`. For re-refined runs use
-`--tag opt6.5` (and `--lsu results_LSU_mouse_opt6.5` for the review).
+(`--strict`). `tric_summary.py` collects everything in `$WORK/report/index.html`, including, on every
+tile searched with both templates, the picked templates of each state (closed teal, open magenta) and
+both states on the same micrograph as found (`tools/overlay_figures.py`: closed filled, open outlined,
+with a table of every detection and the nearest detection of the other state). For re-refined runs use
+`--tag opt6.5` (and `--lsu results_LSU_mouse_opt6.5` for the review). Compare the two states only when
+both were refined at the same threshold; the summary warns when only one of them has a re-refined folder.
 
 ## Files
 
@@ -92,5 +95,5 @@ open states on the same tiles, in `$WORK/report/index.html`. For re-refined runs
 | `run_queue.sh`, `status.py` | resumable queue; state of every search |
 | `make_controls.py`, `make_decoy_jobs.py`, `make_lsu_mouse.py`, `make_open_jobs.py` | control and comparison searches |
 | `refine_more.py` | refinement of more candidates from saved search maps |
-| `decolace_review.py`, `tric_report.py`, `lsu_gap.py`, `tric_summary.py` | review, figures, one-page summary |
+| `decolace_review.py`, `tric_report.py`, `lsu_gap.py`, `tric_summary.py` | review, figures, one-page summary (closed/open overlays with `tools/overlay_figures.py`) |
 | `models/` | TRiC templates (closed, open) |

@@ -24,6 +24,7 @@ from synthetic import make_tile, write_par  # noqa: E402
 
 
 def run(d: Path, device: str, out: str) -> float:
+    """Run the synthetic search on one device into d/out; returns the wall time (s)."""
     p = write_par(d, d / "img.mrc", n_cores=1, extra="optThr 5.0\ninc_degrees 2\n")
     t0 = time.time()
     rc = main([str(p), "--device", device, "--batch-size", "16", "--output-dir", str(d / out)])
@@ -33,6 +34,7 @@ def run(d: Path, device: str, out: str) -> float:
 
 
 def cli(argv=None) -> int:
+    """Command-line entry point: exit code 0 when the GPU and CPU outputs agree."""
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--device", default="cuda")
     a = ap.parse_args(argv)

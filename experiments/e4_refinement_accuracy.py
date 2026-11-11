@@ -44,6 +44,7 @@ MODES = {"v21": {}, "fix_angle": {"fix_optimize_angle": 1}, "continuous": {"refi
 
 
 def template_for(st, R):
+    """Search template (no CTF) of rotation R from the setup's potential."""
     Vr = torch.as_tensor(np.ascontiguousarray(st.V_F.real))
     Vi = torch.as_tensor(np.ascontiguousarray(st.V_F.imag))
     a = torch.arange(1, N + 1, dtype=torch.float64)
@@ -53,6 +54,8 @@ def template_for(st, R):
 
 
 def make_image(d: Path, seed: int, snr: float, ddf_nm: float):
+    """Synthetic image with particles at known off-grid rotations, sub-pixel shifts and a defocus
+    offset; returns (image path, true poses)."""
     rng = np.random.default_rng(seed)
     sio.mw(np.transpose(volume(np.random.default_rng(0)) * 0.002, (1, 2, 0)), d / "vol.mrc", 2.0)
     sio.mw(rng.standard_normal((IM, IM)).astype(np.float32), d / "dummy.mrc", 2.0)
@@ -82,10 +85,13 @@ def make_image(d: Path, seed: int, snr: float, ddf_nm: float):
 
 
 def angle_deg(Ra, Rb):
+    """Rotation angle (deg) between two rotation matrices."""
     return math.degrees(math.acos(np.clip((np.trace(Ra @ Rb.T) - 1) / 2, -1, 1)))
 
 
 def run(n_images, snr, ddf, out):
+    """Search, refine and optimise n_images synthetic images in each refinement mode and tabulate
+    the errors against the truth."""
     rows = []
     for seed in range(n_images):
         with tempfile.TemporaryDirectory() as td:

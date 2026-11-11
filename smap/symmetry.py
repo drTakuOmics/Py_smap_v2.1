@@ -62,6 +62,7 @@ def is_group(S: np.ndarray, tol: float = 1e-3) -> bool:
     flat = S.reshape(len(S), 9)
 
     def member(M):
+        """True if M is one of the operators (within tol)."""
         return bool((np.abs(flat - M.reshape(9)).max(axis=1) < tol).any())
 
     if not member(np.eye(3)):
@@ -70,6 +71,7 @@ def is_group(S: np.ndarray, tol: float = 1e-3) -> bool:
 
 
 def unique_ops(S: np.ndarray, tol: float = 1e-3) -> np.ndarray:
+    """The operators without duplicates (within tol); the first occurrence is kept."""
     out = []
     for M in S:
         if not any(np.abs(M - N).max() < tol for N in out):
@@ -87,6 +89,7 @@ def cif_point_operators(path) -> np.ndarray:
         raise ValueError(f"{path}: no _pdbx_struct_oper_list")
 
     def mat(r):
+        """Rotation part (3x3) of one pdbx_struct_oper_list row."""
         return np.array([[float(r[f"matrix[{i}][{j}]"]) for j in (1, 2, 3)] for i in (1, 2, 3)])
 
     typed = [r for r in recs if r.get("type", "").lower() in ("identity operation", "point symmetry operation")]
@@ -165,6 +168,7 @@ def asu_mask(R: np.ndarray, S: np.ndarray, u: np.ndarray = U_REF) -> np.ndarray:
 
 
 def reduce_grid(R: np.ndarray, S: np.ndarray) -> np.ndarray:
+    """The orientations of R whose viewing direction is the representative of its orbit under S."""
     return np.asarray(R)[asu_mask(R, S)]
 
 
@@ -188,6 +192,7 @@ def check_assembly(S: np.ndarray, xyz: np.ndarray, n_sample: int = 2000, seed: i
 
 
 def point_group_name(n: int) -> str:
+    """Name of the polyhedral group of order n (T, O, I); otherwise the cyclic or dihedral candidates."""
     return {12: "T", 24: "O", 60: "I"}.get(n, f"C{n} or D{n // 2}")
 
 

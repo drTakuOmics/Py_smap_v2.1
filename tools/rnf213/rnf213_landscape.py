@@ -38,6 +38,8 @@ _spec.loader.exec_module(corr)
 
 
 def stitch(tree: Path, bin_A: float):
+    """Place the z-score maps of all port-searched tiles of a micrograph on one grid
+    (maximum where tiles overlap, max-binned to bin_A)."""
     rows = list(csv.DictReader((tree / "tile_offsets.csv").open()))
     tiles, missing = [], []
     for r in rows:
@@ -66,6 +68,7 @@ def stitch(tree: Path, bin_A: float):
 
 
 def merge_candidates(tiles, radius_px):
+    """Candidates of all tiles, best score first, merged within radius_px and numbered in that order."""
     allc = []
     for r, T in tiles:
         for d in T.cands:

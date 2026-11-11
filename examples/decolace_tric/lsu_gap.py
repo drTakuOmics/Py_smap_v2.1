@@ -22,7 +22,6 @@ import argparse
 import csv
 import importlib.util
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -35,7 +34,6 @@ CLASSES = [("found", "#1baf7a"), ("refined", "#2a78d6"), ("gate 6-7", "#eda100")
 
 def main(argv=None) -> int:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))   # repository root (smap)
-    from smap import io as sio
     from smap.cutoff import load_z
     spec = importlib.util.spec_from_file_location("rev", Path(__file__).with_name("decolace_review.py"))
     rev = importlib.util.module_from_spec(spec)
@@ -65,6 +63,7 @@ def main(argv=None) -> int:
         raise SystemExit("no finished LSU search with search_mip_scaled.mrc")
 
     def key(stem):
+        """Five-digit tile number in a file stem."""
         m = re.search(r"_(\d{5})_", stem)
         return m.group(1) if m else stem[:12]
 
@@ -96,6 +95,7 @@ def main(argv=None) -> int:
         co = np.array([r["h"], r["w"]]) // 2 + 1
 
         def grid(xyA):
+            """Positions in A -> zero-based (row, col) on the search grid."""
             rr = (xyA[:, 1] / pix - co[0] + 1) / ratio + cs[0] - 1
             cc = (xyA[:, 0] / pix - co[1] + 1) / ratio + cs[1] - 1
             return np.round(rr).astype(int), np.round(cc).astype(int)
@@ -113,6 +113,7 @@ def main(argv=None) -> int:
         zr, zc = grid(depA)
 
         def znear(i, j, wpx=2):
+            """Largest search z-score within wpx pixels of (i, j)."""
             win = z[max(i - wpx, 0):i + wpx + 1, max(j - wpx, 0):j + wpx + 1]
             return float(win.max()) if win.size else np.nan
         zs = np.array([znear(i, j) for i, j in zip(zr, zc)])

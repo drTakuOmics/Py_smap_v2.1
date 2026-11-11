@@ -133,22 +133,39 @@ residues, ellipsoid in the target's principal-axis proportions, or sphere) and r
 per residue: models with truncated side chains (< 7 atoms/residue, common for 4 Å maps) give
 a weaker potential and under-estimate false positives unless completed first.
 
-## RELION / cryoSPARC export (`smap.export`)
+## RELION / cryoSPARC export (`smap.export`, `tools/export_detections.py`)
 
-RELION angles are the ZYZ decomposition (RELION `Euler_matrix2angles`) of `q_opt`. Checked by
-projecting the potential in real space with RELION's definition P(x,y) = Σ_z V(Aᵀ[x,y,z])
-(independent of SMAP code): NCC 0.989–0.994 with the SMAP templates vs 0.74–0.83 for the
-inverse rotation or the mirror volume (`tests/test_export.py`). Not yet run through RELION
-itself. Defocus: U/V = df1/df2 × 10 Å, angle = −ast·180/π (= particles.par ANGAST).
-Coordinates are zero-based like the RNF213 STAR files (`--coord-origin 1` otherwise).
-`--images` adds `rlnImageName j@particles.mrc` (centred SMAP patches, origin 0) so
-`relion_reconstruct --ctf` can run on the detected patches directly. These patches are the
-template box: a reconstruction from them covers only the template volume, and CTF-delocalised
-signal (≈ λ·Δf/d, e.g. ~65 Å for 3 Å at 1 µm and 300 kV) beyond the box is lost. For anything
-outside the template (neighbours, bound partners, surround volumes, re-detection with a larger
-template) re-extract boxes of at least (extent of interest + 2 × delocalisation) from the
-micrograph; the search writes this note to the log with the values for its defocus. SMAP's search does not
-model amplitude contrast (`F_abs 0`); the STAR uses `--amp-contrast` (default 0.07).
+**Orientations.** RELION angles are the ZYZ decomposition (RELION `Euler_matrix2angles`) of `q_opt`.
+
+* Templates: projecting the potential in real space with RELION's definition
+  P(x,y) = Σ_z V(Aᵀ[x,y,z]) (independent of SMAP code) gives NCC 0.989–0.994 with the SMAP templates,
+  against 0.74–0.83 for the inverse rotation or the mirror volume (`tests/test_export.py`).
+* Experimental data: on AAV2 capsids (EMPIAR-10202) the exported orientations differ from the
+  published RELION orientations by 0.45° (median over 2,615 particles; smallest angle over the 60
+  symmetry operators, `tools/export_detections.py --reference-dir`).
+* Not yet run through `relion_reconstruct` itself.
+
+**CTF and coordinates.** Defocus: U/V = df1/df2 × 10 Å, angle = −ast·180/π (= particles.par ANGAST).
+Coordinates are zero-based like the RNF213 STAR files (`--coord-origin 1` otherwise). SMAP's search
+does not model amplitude contrast (`F_abs 0`); the STAR uses `--amp-contrast` (default 0.07).
+
+**Particle images.** `particles.mrc` holds one centred patch per detection, cut from the micrograph
+as recorded and the size of the template box. Two consequences:
+
+* The patches are not normalised. RELION and cryoSPARC expect background mean 0 and SD 1; with the
+  mean of a dose-weighted sum left in, the reconstruction is a featureless ball (docs/FAQ.md 11.1).
+  `tools/export_detections.py` writes normalised stacks; `smap.export --images` only references the
+  patches and prints a note. `tools/check_reconstruction.py` reconstructs from the STAR file with
+  RELION's conventions as a check before either program.
+* The patches are the template box: a reconstruction from them covers only the template volume, and
+  CTF-delocalised signal (≈ λ·Δf/d, e.g. ~65 Å for 3 Å at 1 µm and 300 kV) beyond the box is lost.
+  For anything outside the template (neighbours, bound partners, surround volumes, re-detection with
+  a larger template) re-extract boxes of at least (extent of interest + 2 × delocalisation) from the
+  micrograph; the search writes this note to the log with the values for its defocus.
+
+**Symmetric searches.** With `symmetryFile` every orientation lies in one asymmetric unit, which
+leaves a cone of Fourier space empty in a C1 reconstruction. `tools/expand_symmetry.py` writes each
+particle at its |G| equivalent orientations (docs/FAQ.md 11.2).
 
 ## Tests (`pytest tests`)
 
@@ -169,6 +186,10 @@ model amplitude contrast (`F_abs 0`); the STAR uses `--amp-contrast` (default 0.
   STAR writer.
 * `test_pvalue_mip.py` — MIP maps equal v2.1's `search_vals.mrc` where v2.1 kept values; the
   planted particle is the p-value maximum; background tail.
+* Tools: `test_export_detections.py` (duplicates, crowded micrographs, orientations modulo symmetry,
+  normalised stacks), `test_check_reconstruction.py` (map vs template for right and inverse rotations,
+  unnormalised images, symmetry expansion), `test_overlay_figures.py`, `test_search_figures.py`,
+  `test_radial_scan.py`, `test_star_to_pars.py` and the other `test_*` files named after their tool.
 
 Not covered by Octave: `mask_a_volume` (Octave's `bwdist` is 2-D only), `read_cif_file`'s awk
 call, `imresize` (Octave's differs from MATLAB; ported from MATLAB's documented algorithm

@@ -55,18 +55,22 @@ def load_cs(paths) -> dict:
 
 
 def _s(x) -> str:
+    """Text of a cryoSPARC field (stored as bytes or str)."""
     return x.decode() if isinstance(x, (bytes, np.bytes_)) else str(x)
 
 
 def original_name(cs_path: str) -> str:
+    """Micrograph file name without cryoSPARC's numeric import prefix."""
     return PREFIX.sub("", Path(cs_path).name)
 
 
 def read_par(path) -> list:
+    """Lines of a .par file."""
     return Path(path).read_text().splitlines()
 
 
 def par_value(lines, key):
+    """Values of a key in .par lines (None if the key is absent)."""
     for ln in lines:
         t = ln.split()
         if t and t[0] == key and len(t) > 1:
@@ -75,6 +79,8 @@ def par_value(lines, key):
 
 
 def set_keys(lines, values: dict) -> list:
+    """The lines with the given keys set: the first occurrence is replaced, repeats are dropped
+    and keys not present are appended."""
     out, done = [], set()
     for ln in lines:
         t = ln.split()

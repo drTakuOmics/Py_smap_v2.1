@@ -1,7 +1,14 @@
 """Export SMAP detections to a RELION 3.1+ particle STAR file (also imported by cryoSPARC).
 
-New in the port (not part of v2.1). Intended use: baited reconstruction / local
-reconstruction of detected particles with ``relion_reconstruct`` or cryoSPARC.
+New in the port (not part of v2.1). Writes coordinates, orientations and CTF values of the
+detections of single searches, for re-extraction or local reconstruction with RELION or
+cryoSPARC.
+
+``--images`` adds references to the patches of ``particles.mrc``. Those patches hold the
+micrograph values as recorded (not normalised), which RELION and cryoSPARC do not accept as
+particle images: a reconstruction from them is a featureless ball (docs/FAQ.md, section 11).
+For a reconstruction use ``tools/export_detections.py``: it writes normalised stacks for any
+number of searches, removes duplicate detections and compares orientations with a reference.
 
 Geometry (validated in tests/test_export.py against an independent real-space projector):
 
@@ -90,11 +97,13 @@ def frealign_to_smap(psi, theta, phi) -> np.ndarray:
 # ---------------------------------------------------------------- readers
 
 def _par_value(params: dict, key, default=None):
+    """Value of a .par key (first element when the reader returned a list)."""
     v = params.get(key, default)
     return v[0] if isinstance(v, list) else v
 
 
 def optics_from_par(par_file) -> dict:
+    """Pixel size (A), voltage (kV) and Cs (mm) from a search .par file."""
     params, _ = sio.read_params_file(par_file)
     return dict(pixel=float(_par_value(params, "aPerPix")),
                 voltage_kV=float(_par_value(params, "V_acc")) / 1000,
@@ -135,12 +144,18 @@ def rows_from_rnf213(csv_file, micrograph=None) -> list[dict]:
 
 def write_star(rows, path, pixel, voltage_kV, cs_mm, amp_contrast=0.07, coord_origin=0,
                image_size=None) -> int:
+    """Write a RELION 3.1 STAR file (optics and particles tables) and return the particle count.
+    Rows: dicts with micrograph, x, y, R, score, df1_A, df2_A, angast_deg and optionally image
+    (adds rlnImageName and zero origins) and subset (adds rlnRandomSubset)."""
     images = any(r.get("image") for r in rows)
     labels = ["rlnMicrographName", "rlnCoordinateX", "rlnCoordinateY", "rlnAngleRot", "rlnAngleTilt",
               "rlnAnglePsi", "rlnDefocusU", "rlnDefocusV", "rlnDefocusAngle", "rlnOpticsGroup",
               "rlnAutopickFigureOfMerit", "rlnClassNumber"]
     if images:
         labels += ["rlnImageName", "rlnOriginXAngst", "rlnOriginYAngst"]
+    subsets = any(r.get("subset") for r in rows)
+    if subsets:                    # half-sets; cryoSPARC imports the orientations only with this column
+        labels += ["rlnRandomSubset"]
     with open(path, "w") as fh:
         fh.write("# SMAP (Python port) detections; angles = RELION ZYZ of SMAP q_opt; "
                  f"coordinates {'zero' if coord_origin == 0 else 'one'}-based pixels; "
@@ -162,6 +177,8 @@ def write_star(rows, path, pixel, voltage_kV, cs_mm, amp_contrast=0.07, coord_or
                     f"{r['angast_deg']:.4f}", "1", f"{r['score']:.4f}", "1"]
             if images:
                 vals += [r["image"], "0.0", "0.0"]
+            if subsets:
+                vals += [str(int(r["subset"]))]
             fh.write(" ".join(vals) + "\n")
     return len(rows)
 
@@ -223,6 +240,9 @@ def main(argv=None) -> int:
     n = write_star(rows, a.out, opt["pixel"], opt["voltage_kV"], opt["cs_mm"], a.amp_contrast,
                    a.coord_origin, size)
     print(f"wrote {n} particles to {a.out}")
+    if a.source == "smap" and a.images:
+        print("NOTE: rlnImageName points at particles.mrc, whose patches are not normalised. Normalise them "
+              "before a reconstruction, or export with tools/export_detections.py (normalised stacks).")
     return 0
 
 

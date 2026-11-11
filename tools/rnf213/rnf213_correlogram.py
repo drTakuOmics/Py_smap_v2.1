@@ -50,12 +50,14 @@ METRIC = {"z": ("search_mip_scaled.mrc", "Search z-score (flat-fielded SNR)"),
 # ------------------------------------------------------------------ data
 
 def read_map(path: Path) -> np.ndarray:
+    """An .mrc map as [row, col] on the search grid (first section of a stack)."""
     with mrcfile.open(path, permissive=True) as m:
         a = np.asarray(m.data, dtype=np.float64)
     return a[0] if a.ndim == 3 else a          # [row, col] on the search grid
 
 
 def par_params(path: Path) -> dict:
+    """{key: [values]} of a search.par ('#' starts a comment)."""
     out = {}
     for line in path.read_text().splitlines():
         f = line.split("#", 1)[0].split()
@@ -65,6 +67,7 @@ def par_params(path: Path) -> dict:
 
 
 def tile_offset(tile: Path):
+    """Zero-based (x0, y0) of a tile in its micrograph, from tile_offsets.csv ((0, 0) if not listed)."""
     off = tile.parent / "tile_offsets.csv"
     if off.exists():
         for r in csv.DictReader(off.open()):
@@ -74,6 +77,7 @@ def tile_offset(tile: Path):
 
 
 class Tile:
+    """One searched tile: its maps, pixel sizes, position in the micrograph and refined candidates."""
     def __init__(self, tile: Path, metric: str, label: str):
         self.tile, self.label = Path(tile), label
         out = self.tile / "output"
@@ -97,16 +101,19 @@ class Tile:
 
     # map grid (1-based row/col, continuous) -> micrograph zero-based px
     def to_mic(self, r, c):
+        """Search-grid (row, col), 1-based -> zero-based micrograph pixels (x, y)."""
         y = (np.asarray(r, float) - self.cs[0]) * self.ratio + self.co[0] - 1 + self.y0
         x = (np.asarray(c, float) - self.cs[1]) * self.ratio + self.co[1] - 1 + self.x0
         return x, y
 
     def to_grid(self, x, y):
+        """Zero-based micrograph pixels (x, y) -> search-grid (row, col), 1-based."""
         r = (np.asarray(y, float) - self.y0 + 1 - self.co[0]) / self.ratio + self.cs[0]
         c = (np.asarray(x, float) - self.x0 + 1 - self.co[1]) / self.ratio + self.cs[1]
         return r, c
 
     def _candidates(self, out: Path):
+        """Refined candidates from particles.csv (or list_final.txt and particles.txt of a v2.1 run)."""
         rows = []
         if (out / "particles.csv").exists():
             for r in csv.DictReader((out / "particles.csv").open()):
@@ -157,6 +164,7 @@ def read_reference(path: Path, micrograph: str):
 # ------------------------------------------------------------------ drawing
 
 def style():
+    """Matplotlib settings for the figures (Agg backend; text stays text in PDF and SVG)."""
     import matplotlib as mpl
     mpl.use("Agg")
     mpl.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["DejaVu Sans"],
@@ -167,12 +175,15 @@ def style():
 
 
 def save(fig, stem: Path, meta: dict):
+    """Save a figure as PNG (300 dpi), PDF and SVG, and its metadata as JSON."""
     for ext in ("png", "pdf", "svg"):
         fig.savefig(stem.with_suffix("." + ext), dpi=300, bbox_inches="tight")
     stem.with_suffix(".json").write_text(json.dumps(meta, indent=1))
 
 
 def landscape(ax, sub, xs, ys, zlim, cutoff, cmap, title, floor=False, peak_label=True):
+    """3-D landscape of a z-score window: shaded surface, optional contours on the floor,
+    cutoff plane and peak label."""
     import matplotlib as mpl
     from matplotlib.colors import LightSource, Normalize
     cmap = mpl.colormaps[cmap] if isinstance(cmap, str) else cmap
@@ -210,6 +221,7 @@ def landscape(ax, sub, xs, ys, zlim, cutoff, cmap, title, floor=False, peak_labe
 
 
 def topview(ax, sub, xs, ys, zlim, cutoff, cmap, peak=None):
+    """Top view of a z-score window with the cutoff contour and an optional peak marker."""
     import matplotlib as mpl
     cm = (mpl.colormaps[cmap] if isinstance(cmap, str) else cmap).copy()
     cm.set_bad("#f2f2f2")                                    # excluded margin / padding
@@ -226,6 +238,7 @@ def topview(ax, sub, xs, ys, zlim, cutoff, cmap, peak=None):
 
 
 def profiles(ax, sub, xs, ys, cutoff, color):
+    """z-score profiles through the peak along x and y, with the cutoff line."""
     i, j = np.unravel_index(np.argmax(sub), sub.shape)
     ax.plot(xs - xs[j], sub[i, :], color=color, lw=1.6, label="along x")
     ax.plot(ys - ys[i], sub[:, j], color=color, lw=1.6, ls="--", label="along y")

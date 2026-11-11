@@ -74,6 +74,7 @@ def _str2num(text: str):
 
 
 def _strtrim(s: str) -> str:
+    """MATLAB strtrim: strip white space and NUL characters."""
     return s.strip(" \t\r\n\v\f\x00")
 
 
@@ -115,6 +116,7 @@ def read_params_file(fn: str | Path, fn_type: str | None = None):
 
 
 def zp(num, n: int, pad_char: str = "0") -> str:
+    """Port of smap.zp: a number or string right-aligned to n characters (zero-padded by default)."""
     s = num if isinstance(num, str) else str(int(num)) if float(num).is_integer() else str(num)
     return s.rjust(n, pad_char)
 
@@ -164,18 +166,22 @@ def write_rotations_file(R: np.ndarray, fn: str | Path) -> None:
 # --------------------------------------------------------------------------- .dat
 
 def write_single(fn: str | Path, values) -> None:
+    """Write values as raw little-endian float32 (MATLAB fwrite 'single')."""
     np.asarray(values, dtype="<f4").ravel().tofile(fn)
 
 
 def write_double(fn: str | Path, values) -> None:
+    """Write values as raw little-endian float64 (MATLAB fwrite 'double')."""
     np.asarray(values, dtype="<f8").ravel().tofile(fn)
 
 
 def read_single(fn: str | Path) -> np.ndarray:
+    """Read a raw little-endian float32 file as a flat array."""
     return np.fromfile(fn, dtype="<f4")
 
 
 def read_double(fn: str | Path) -> np.ndarray:
+    """Read a raw little-endian float64 file as a flat array."""
     return np.fromfile(fn, dtype="<f8")
 
 

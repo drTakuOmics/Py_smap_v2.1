@@ -131,6 +131,8 @@ class _Scorer:
     """Template scoring on an Npix patch (lines 1101-1118 and repeats), batched on torch."""
 
     def __init__(self, st: SearchSetup, fPSD_patch: np.ndarray, device):
+        """Template volume, sampling grid and whitening filter at the search pixel size.
+        self.mask: the pixels within 5 px of the patch centre, where the score is read."""
         import torch
         self.t = torch
         self.dev = torch.device(device)
@@ -162,6 +164,7 @@ class _Scorer:
         return P
 
     def set_patch(self, patch, pmean, psd):
+        """Set the image patch to score against, with the search mean and SD at the same pixels."""
         t = self.t
         pf = sfft.fftn(np.fft.ifftshift(patch.astype(np.float32)))
         pf = pf / np.float32(np.std(pf, ddof=1))
@@ -183,11 +186,14 @@ class _Scorer:
 
 
 def _ctf_corner_imag(df, N, params):
+    """imag(CTF) x template envelope for defocus rows df, origin at the corner: (n, N, N)."""
     C = np.imag(ctf(np.atleast_2d(df), [N, N], params)) * template_envelope(N, params)[:, :, None]
     return np.stack([np.fft.ifftshift(C[:, :, j]) for j in range(C.shape[2])])
 
 
 def _df_scan(df, half, step):
+    """Defocus rows [df1, df2, angle] from -half to +half around df in steps of step (nm);
+    df1 and df2 move together, the astigmatism angle is kept."""
     d1 = matlab_colon(df[0] - half, step, df[0] + half)
     d2 = matlab_colon(df[1] - half, step, df[1] + half)
     n = min(d1.size, d2.size)
@@ -349,6 +355,8 @@ class _Optimizer:
     """State of the 'true optimization' (lines 1418-1505) shared by optimize_xcorr."""
 
     def __init__(self, st: SearchSetup, device=None, log=print):
+        """Load the template potential and the micrograph at the original pixel size, whiten the
+        micrograph as the search does, and bring the search mean and SD maps to the same grid."""
         import torch
         self.t = torch
         p = st.params
@@ -400,6 +408,8 @@ class _Optimizer:
 
     # ---- template: exit wave |w|^2 (optimize_xcorr / optimize_angle)
     def template(self, R, CTF):
+        """Exit-wave template of rotation R: the projected potential as a phase object, the CTF
+        applied to the wave, and the intensity |wave|^2 (N, N)."""
         t = self.t
         Rb = t.as_tensor(np.asarray(R)[None], device=self.dev)
         # xyz_r = (R*xyz')' : X = R[0,:].v + cp ...  (note: R, not R')
@@ -419,8 +429,12 @@ class _Optimizer:
         return float(d[0, 0] * self.N)
 
     def optimize_xcorr(self, prt):
+        """Final optimisation of one particle at the original pixel size (lines 1418-1505):
+        sub-pixel shift, then Nelder-Mead over orientation and shift (or the continuous refinement),
+        and the final score at the optimised pose. Returns q_opt, xy_opt, peak_opt, patch, template, df."""
         p, N = self.p, self.N
         xy = prt["xy"]
+        # ---- template at the refined pose and the whitened image patch around the particle
         Rref = normalize_rm(prt["q"].T)
         CTF = np.fft.ifftshift(ctf(np.atleast_2d(prt["df"]), [N, N], p)[:, :, 0] * template_envelope(N, p))
         imref = nm(crop_patch(self.nfIm, (N, N), xy))
@@ -432,10 +446,12 @@ class _Optimizer:
         tmpl = tmpl - bg
         tF = ftj(tmpl) * self.fPSD_patch
         tF = tF / np.std(tF, ddof=1)
+        # ---- sub-pixel position: maximise the flat-fielded correlation over the shift
         cc_corr = (iftj(imref_F * np.conj(tF)) - meanref) / SDref
         cc_F = ftj(cc_corr)
         shifts, _ = fminsearch(lambda s: -self.cc_value_at_shift(cc_F, s), [0.0, 0.0])
 
+        # ---- image, mean and SD maps shifted so that the particle sits on the patch centre
         imref_s = apply_phase_shifts_2d(imref, shifts[::-1])
         mean_s = apply_phase_shifts_2d(self.meanImage, shifts[::-1])
         sd_s = apply_phase_shifts_2d(self.SDImage, shifts[::-1])
@@ -446,6 +462,7 @@ class _Optimizer:
         cache = {}
 
         def obj(x):
+            """Negative score for x = [quaternion (4), shift / 100 (2)]; templates cached per rotation."""
             Rt = q2r(x[:4]) @ Rref if fix else Rref        # QUIRK: v2.1 ignores x[:4]
             key = Rt.tobytes()
             if key not in cache:
@@ -455,6 +472,7 @@ class _Optimizer:
             tmp = (iftj(imref_F * np.conj(cache[key])) - meanref) / SDref
             return -self.cc_value_at_shift(ftj(tmp), x[4:6] * 100)
 
+        # ---- orientation and shift together (Nelder-Mead), or the continuous refinement
         df_out = np.asarray(prt["df"], dtype=np.float64).copy()
         if int(self.p.get("refine_continuous", 0) or 0):
             RM, dsh, ddf = self._continuous(Rref, prt["df"], imref_F, meanref, SDref, bg)
@@ -467,9 +485,12 @@ class _Optimizer:
             shifts = shifts + ang[4:6] * 100
         xy_opt = (xy[0] - shifts[0], xy[1] - shifts[1])
 
+        # ---- final score on the full image at the optimised pose
         tm = self.template(RM, CTF) - bg
         nf_s = apply_phase_shifts_2d(self.nfIm, shifts[::-1])
         unmod_s = apply_phase_shifts_2d(self.nfIm_unmod, shifts[::-1])
+        # saved patch (particles.mrc): the micrograph as recorded, centred on the particle;
+        # not whitened and not normalised
         patchref = crop_patch(unmod_s, (N, N), xy)
         mean_s = apply_phase_shifts_2d(self.meanImage, shifts[::-1])
         sd_s = apply_phase_shifts_2d(self.SDImage, shifts[::-1])
@@ -489,6 +510,7 @@ class _Optimizer:
         ctf_cache, tm_cache = {}, {}
 
         def ctf_for(ddf):
+            """CTF (corner origin, with envelope) at a common defocus offset ddf (nm), cached."""
             k = round(float(ddf), 4)
             if k not in ctf_cache:
                 d = df0.copy()
@@ -498,6 +520,7 @@ class _Optimizer:
             return ctf_cache[k]
 
         def obj(x):
+            """Negative score for x = [rotation vector (deg, 3), shift (px, 2), defocus offset (nm)]."""
             Rt = rodrigues(np.radians(x[:3])) @ Rref
             key = (Rt.tobytes(), round(float(x[5]), 4))
             if key not in tm_cache:

@@ -14,6 +14,8 @@ for (x, y, z) in pts:
     vol += np.exp(-((X - x)**2 + (Y - y)**2 + (Z - z)**2) / (2 * s * s))
 
 def vf(v, pad=1, grid=False):
+    """Centred Fourier transform of the volume, zero-padded pad-fold; grid=True pre-divides by the
+    trilinear kernel (sinc^2). Returns (real, imag, padded size)."""
     M = N * pad
     if grid:  # pre-compensate trilinear kernel: divide by sinc^2(x/M) per axis
         g = np.sinc(ax / M) ** 2
@@ -25,6 +27,7 @@ def vf(v, pad=1, grid=False):
     return torch.as_tensor(F.real), torch.as_tensor(F.imag), M
 
 def templ(F, R, pad):
+    """SMAP central-slice templates (N x N) for rotations R from the transform of vf()."""
     Vr, Vi, M = F
     a = torch.arange(1, N + 1, dtype=torch.float64)
     rr, cc = torch.meshgrid(a, a, indexing='ij')
@@ -35,6 +38,7 @@ def templ(F, R, pad):
     return _templates(Vr, Vi, torch.as_tensor(R), (cc - cp) * pad, (rr - cp) * pad, cpm).numpy() * 1.0
 
 def exact(R):
+    """Exact projections of the Gaussian-atom model (analytic sum over atoms), for comparison."""
     a, b = R[:, 0, :], R[:, 1, :]
     out = []
     for i in range(R.shape[0]):
@@ -46,6 +50,7 @@ def exact(R):
     return np.array(out)
 
 def corr(a, b, hp=None):
+    """Fourier correlation of two images (DC excluded; with hp, only frequencies above hp)."""
     A, B = np.fft.fft2(a), np.fft.fft2(b)
     k = np.sqrt(np.fft.fftfreq(N)[:, None]**2 + np.fft.fftfreq(N)[None, :]**2)
     w = (k > 0) if hp is None else (k > hp)

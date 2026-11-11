@@ -28,6 +28,7 @@ DEFAULT_TOL = dict(score=0.05, grid_px=1.0, opt_px=0.5, angle_deg=1.0, defocus_n
 
 
 def _matrix(path: Path, skiprows: int = 0) -> np.ndarray:
+    """Numeric table of a SMAP text output (comment and blank lines skipped; empty if missing)."""
     if not path.exists():
         return np.empty((0, 0))
     lines = [x for x in path.read_text().splitlines()[skiprows:]
@@ -36,6 +37,7 @@ def _matrix(path: Path, skiprows: int = 0) -> np.ndarray:
 
 
 def _quat_angle(qa, qb) -> np.ndarray:
+    """Rotation angle (deg) between two quaternions (sign-independent)."""
     qa = qa / np.linalg.norm(qa, axis=-1, keepdims=True)
     qb = qb / np.linalg.norm(qb, axis=-1, keepdims=True)
     d = np.clip(np.abs(np.sum(qa * qb, axis=-1)), 0, 1)
@@ -43,6 +45,7 @@ def _quat_angle(qa, qb) -> np.ndarray:
 
 
 def _frealign_R(psi, theta, phi) -> np.ndarray:
+    """Rotation matrix Rz(phi) Ry(theta) Rz(psi) of Frealign angles in degrees (particles.par)."""
     def rz(a):
         c, s = math.cos(a), math.sin(a)
         return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1.0]])
@@ -54,6 +57,7 @@ def _frealign_R(psi, theta, phi) -> np.ndarray:
 
 
 def _pair(xy_a, xy_b, radius):
+    """One-to-one pairs (i, j, distance) of positions closer than radius, minimising the summed distance."""
     if len(xy_a) == 0 or len(xy_b) == 0:
         return []
     d = np.linalg.norm(xy_a[:, None] - xy_b[None], axis=2)
@@ -64,6 +68,9 @@ def _pair(xy_a, xy_b, radius):
 
 
 def compare_outputs(ref: Path, test: Path, tol: dict | None = None) -> dict:
+    """Compare two output folders: paired particles (scores, defocus, angles), search mean/SD
+    maps, survival curves and highVals. Returns the report; rep['all_ok'] is False when a check
+    exceeds its tolerance."""
     tol = {**DEFAULT_TOL, **(tol or {})}
     ref, test = Path(ref), Path(test)
     rep: dict = dict(reference=str(ref.resolve()), test=str(test.resolve()), tolerances=tol, checks={})
@@ -98,6 +105,7 @@ def compare_outputs(ref: Path, test: Path, tol: dict | None = None) -> dict:
                             unpaired_test=[k for k in range(1, nb + 1) if k not in paired_b])
 
     def worst(key):
+        """Largest absolute value of one field over the pairs (None if no pair has it)."""
         v = [abs(r[key]) for r in rows if key in r]
         return max(v) if v else None
 
@@ -152,6 +160,7 @@ def compare_outputs(ref: Path, test: Path, tol: dict | None = None) -> dict:
 
 
 def format_report(rep: dict) -> str:
+    """The report as text: one line per check, then the paired particles."""
     out = [f"reference: {rep['reference']}", f"test:      {rep['test']}", ""]
     out.append(f"{'check':28s} {'result':>32s}  {'tol':>8s}  ok")
     for k, c in rep["checks"].items():

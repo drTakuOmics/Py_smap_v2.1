@@ -11,6 +11,7 @@ from . import __version__
 
 
 def sha256(path, chunk=1 << 22) -> str | None:
+    """SHA-256 of a file, read in chunks (None if the file cannot be read)."""
     try:
         h = hashlib.sha256()
         with open(path, "rb") as fh:
@@ -22,6 +23,7 @@ def sha256(path, chunk=1 << 22) -> str | None:
 
 
 def code_commit() -> str | None:
+    """Git commit of this checkout, with '+modified' when smap/ has local edits (None outside git)."""
     root = Path(__file__).resolve().parents[1]
     try:
         out = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True,
@@ -35,6 +37,8 @@ def code_commit() -> str | None:
 
 
 def provenance(params: dict) -> dict:
+    """Record stored in search_status.json: versions, GPU, run settings, the .par text and the
+    SHA-256 of every input file."""
     import numpy
     import scipy
     try:

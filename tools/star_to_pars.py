@@ -69,6 +69,8 @@ def particles(path) -> list:
 
 
 def pixel_size(r: dict):
+    """Pixel size (A) of a particle row: an optics column, or detector pixel / magnification
+    (RELION 3.0); None if neither is present."""
     for k in ("rlnMicrographPixelSize", "rlnMicrographOriginalPixelSize", "rlnImagePixelSize"):
         if k in r:
             return float(r[k])
@@ -88,6 +90,7 @@ def origin_px(r: dict) -> tuple:
 
 
 def renamed(name: str, rules) -> str:
+    """Base name of a micrograph after the --rename rules [(regex, replacement), ...]."""
     base = Path(name).name
     for pat, rep in rules:
         base = re.sub(pat, rep, base)

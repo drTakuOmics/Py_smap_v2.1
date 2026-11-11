@@ -41,6 +41,7 @@ def matlab_mode(x: np.ndarray):
 
 
 def zp_int(i: int, n: int = 4) -> str:
+    """Integer as a zero-padded string of n digits (job and file numbers)."""
     return str(int(i)).rjust(n, "0")
 
 
@@ -169,6 +170,7 @@ def crop_or_pad(inref: np.ndarray, new_dims, pad_val: float = 0.0) -> np.ndarray
 
 
 def _is_3_smooth(n: int) -> bool:
+    """True if n has no prime factors other than 2 and 3 (an FFT-friendly size)."""
     if n < 1:
         return False
     for p in (2, 3):

@@ -42,6 +42,8 @@ BASE = "#F0B43C"
 # ------------------------------------------------------------------ inputs
 
 def read_particles(out_dir: Path) -> list:
+    """Refined candidates of particles.csv: id, final score, position (original pixels),
+    search-grid position and rotation q_opt."""
     f = out_dir / "particles.csv"
     if not f.exists():
         raise SystemExit(f"{f} missing (search without refinement?)")
@@ -55,11 +57,14 @@ def read_particles(out_dir: Path) -> list:
 
 
 def status(out_dir: Path) -> dict:
+    """search_status.json of a search folder ({} if absent)."""
     f = out_dir / "search_status.json"
     return json.loads(f.read_text()) if f.exists() else {}
 
 
 def par_value(text: str, key: str):
+    """First value of a key in the .par text (None if absent). Lines with '#' are ignored,
+    as the .par reader does."""
     for ln in (text or "").splitlines():
         t = ln.split()
         if t and t[0] == key and "#" not in ln and len(t) > 1:
@@ -68,6 +73,7 @@ def par_value(text: str, key: str):
 
 
 def find_volume(out_dir: Path, st: dict) -> Path:
+    """Template potential of a search: the .mrc given as its model, else the *_SP.mrc in the folder."""
     p = (st.get("provenance", {}).get("input_sha256", {}).get("modelFile", {}) or {}).get("path")
     if p and Path(p).suffix == ".mrc" and Path(p).exists():
         return Path(p)
@@ -78,6 +84,7 @@ def find_volume(out_dir: Path, st: dict) -> Path:
 
 
 def voxel_size(path: Path, default: float) -> float:
+    """Voxel size from an .mrc header (default when missing or unreadable)."""
     try:
         import mrcfile
         with mrcfile.open(path, permissive=True, header_only=True) as m:
@@ -88,11 +95,13 @@ def voxel_size(path: Path, default: float) -> float:
 
 
 def bin_mean(a: np.ndarray, b: int) -> np.ndarray:
+    """Mean over b x b blocks (edges that do not fill a block are dropped)."""
     n0, n1 = (a.shape[0] // b) * b, (a.shape[1] // b) * b
     return a[:n0, :n1].reshape(n0 // b, b, n1 // b, b).mean(axis=(1, 3))
 
 
 def bin_max(a: np.ndarray, b: int) -> np.ndarray:
+    """Maximum over b x b blocks, ignoring NaN (all-NaN blocks stay NaN)."""
     n0, n1 = (a.shape[0] // b) * b, (a.shape[1] // b) * b
     import warnings
     with warnings.catch_warnings():
@@ -252,6 +261,7 @@ def render(W: np.ndarray, level: float, color=BASE, lighting: str = "soft",
 # ------------------------------------------------------------------ figure helpers
 
 def style():
+    """Matplotlib settings shared by the figures."""
     import matplotlib as mpl
     mpl.rcParams.update({"font.size": 9, "axes.titlesize": 10, "axes.edgecolor": "#888888",
                          "axes.labelcolor": "#333333", "xtick.color": "#555555",
@@ -259,6 +269,7 @@ def style():
 
 
 def show_micrograph(ax, img_disp, extent):
+    """Micrograph in grey between its 0.5th and 99.5th percentiles, axes in A."""
     lo, hi = np.percentile(img_disp, [0.5, 99.5])
     ax.imshow(img_disp, cmap="gray", vmin=lo, vmax=hi, extent=extent, origin="upper",
               interpolation="bilinear")
@@ -267,6 +278,7 @@ def show_micrograph(ax, img_disp, extent):
 
 
 def draw_poses(ax, sprites, parts, box_A):
+    """Draw the rendered surface of every detection, centred at its position (box_A wide)."""
     for d in parts:
         cx, cy = d["xA"], d["yA"]
         h = box_A / 2
@@ -275,6 +287,7 @@ def draw_poses(ax, sprites, parts, box_A):
 
 
 def scale_bar(ax, length_A, extent, color="white"):
+    """Scale bar of length_A in the lower right corner, labelled in nm."""
     x1, x2, y1, y2 = extent[0], extent[1], extent[3], extent[2]
     w, hgt = x2 - x1, y2 - y1
     xs = x2 - 0.05 * w - length_A
@@ -285,6 +298,7 @@ def scale_bar(ax, length_A, extent, color="white"):
 
 
 def save(fig, path: Path):
+    """Save a figure with a white background and a tight bounding box."""
     fig.savefig(path, bbox_inches="tight", facecolor="white")
 
 
@@ -394,6 +408,7 @@ def main(argv=None) -> int:
                                  radial=rad) for d in det}
 
     def radial_bar(fig, ax, orientation="vertical"):
+        """Colour bar of the radial colouring (nothing without --color-by radial)."""
         if rlim:
             from matplotlib.cm import ScalarMappable
             sm = ScalarMappable(norm=Normalize(*rlim), cmap=a.cmap)
@@ -454,6 +469,8 @@ def main(argv=None) -> int:
     vhi = max(float(vals.max()), a.cutoff + 1)
 
     def zpanel(axx, cbar=True):
+        """z-score map with the cutoff contour and the refined candidates
+        (white: final score above the cutoff; grey: below)."""
         im = axx.imshow(zdisp, cmap=cmap, vmin=vlo, vmax=vhi, extent=zext, origin="upper",
                         interpolation="nearest")
         yy = np.linspace(zext[3], zext[2], zdisp.shape[0])
@@ -496,6 +513,7 @@ def main(argv=None) -> int:
     rgb[~np.isfinite(G)] = (0.92, 0.92, 0.92, 1.0)
 
     def lpanel(axx):
+        """z-score landscape with the cutoff plane; labels on the 12 highest detections."""
         X, Y = np.meshgrid(xs, ys)
         axx.plot_surface(X, Y, Z, facecolors=rgb, rstride=1, cstride=1, linewidth=0, antialiased=False,
                          shade=False)
@@ -545,7 +563,7 @@ def main(argv=None) -> int:
 
     meta = dict(result=str(res), micrograph=str(img_path), volume=str(vol_path), volume_voxel_A=a_vol, cutoff=a.cutoff,
                 label=a.label, n_refined=len(parts), n_detected=len(det), a_orig=a_orig, a_search=a_search,
-                render_A=vox, surface_sigma_A=a.surface_sigma_A, overview_render_A=vox_o,
+                color=a.color, render_A=vox, surface_sigma_A=a.surface_sigma_A, overview_render_A=vox_o,
                 overview_sigma_A=a.overview_sigma_A, zmap_bin_A=zb * a_search, lighting=a.lighting,
                 color_by=a.color_by, radial_limits_A=rlim,
                 mass_frac=a.mass_frac, iso_level=level, display_bin_px=b,

@@ -11,6 +11,9 @@ cryo-EM images.**
 ![python](https://img.shields.io/badge/python-3.10%2B-2878B5)
 ![license](https://img.shields.io/badge/license-MIT-555555)
 
+[Install](#install) · [Run](#run) · [Examples](#examples) · [Tools](tools/README.md) ·
+[Troubleshooting](docs/FAQ.md) · [Technical notes](PORT_NOTES.md) · [Citing](#citing)
+
 SMAP finds individual copies of a known macromolecule in a single 2D cryo-EM image. It compares
 the image with noise-free projections of an atomic model over all orientations and several
 defocus planes, and it validates every hit against the statistics of the whole search, without
@@ -41,21 +44,23 @@ algorithm, `.par` files and output files.
 - 3D peak landscapes ("correlograms");
 - whole-micrograph figures: fitted poses drawn on the micrograph, z-score map, landscape with the cutoff;
 - target–decoy FDR estimates;
-- RELION/cryoSPARC STAR export;
+- an angular grid reduced to one asymmetric unit for symmetric templates (`symmetryFile`);
+- RELION/cryoSPARC export with normalised particle stacks, and a reconstruction check against the template;
 - a tool that compares two runs;
 - optional refinement improvements.
 
-## Two kinds of data
+## Examples
 
-| | In situ: cells | Purified protein: single-particle cryo-EM |
-|---|---|---|
-| Example | Legacy SMAP v2.1 sample: mouse embryonic fibroblast; 60S ribosomal subunit (LSU, PDB 6EK0); decoy: rearranged *E. coli* ribosome (PDB 5J5B) | **RNF213 pilot:** purified RNF213 micrographs (EMPIAR-10711); model PDB 7OIK (RNF213:UBE2L3) and partial (domain-omitted) templates |
-| Folder | [`examples/ribosome_in_situ`](examples/ribosome_in_situ) | [`examples/rnf213_purified`](examples/rnf213_purified) |
-| Question | Locate and orient one complex in a crowded cell | Detect ~600 kDa particles and test the port, refinement options and validation controls on a purified sample |
+| Example | Sample | Target (template) | Shows | Folder |
+|---|---|---|---|---|
+| 1. RNF213 pilot | purified protein, single-particle micrographs (EMPIAR-10711) | RNF213:UBE2L3, ~600 kDa (PDB 7OIK); partial, domain-omitted templates | the port against SMAP v2.1 on real data; refinement options; validation controls | [`examples/rnf213_purified`](examples/rnf213_purified) |
+| 2. Ribosomes in a cell | mouse embryonic fibroblast (legacy SMAP v2.1 sample) | 60S subunit (PDB 6EK0); decoy: rearranged *E. coli* ribosome (PDB 5J5B) | a whole-micrograph search, cutoffs from the z-score map and from a decoy | [`examples/ribosome_in_situ`](examples/ribosome_in_situ) |
+| 3. AAV2 capsid | purified virus-like particles (EMPIAR-10202) | 60-subunit capsid (PDB 6E9D) | the icosahedral grid reduction, a published particle list as positive control, export and reconstruction check | [`examples/aav2_capsid`](examples/aav2_capsid) |
+| 4. TRiC in lamellae | FIB-milled mouse cells (DeCo-LACE, EMPIAR-11063) | TRiC closed and open, ~0.95 MDa (PDB 7NVL; 6NR8 scaffold) | the controls needed to read detections in cells: deposited ribosomes, phase-randomised tiles, a decoy protein, artifact zones | [`examples/decolace_tric`](examples/decolace_tric) |
 
-HRTM was developed for in situ data. In a purified sample there are many particles per image
-and the ice is thin, so the RNF213 pilot is a controlled test bed before applying the same
-workflow to cells.
+HRTM was developed for in situ data (examples 2 and 4). A purified sample has many particles per
+image and thin ice, so examples 1 and 3 are controlled test beds: the same workflow, with an
+independent particle list to compare against.
 
 ## The `.par` file in brief
 
@@ -210,28 +215,39 @@ python -m smap.decoy --pair results/full_LSU results/full_decoy --out results/de
 python tools/search_figures.py results/full_LSU --cutoff 7.25 --label "LSU (6EK0)" --out results/figures_LSU
 ```
 
-## Other workflows and troubleshooting
+## Example 3: AAV2 capsid (purified virus-like particles, icosahedral search)
 
-- [`examples/decolace_tric/`](examples/decolace_tric): TRiC in cell lamellae (DeCo-LACE, EMPIAR-11063), with
-  the controls needed to read the detections: deposited ribosomes as positive control, phase-randomised
-  tiles for the noise rate after refinement, a decoy protein, image-artifact zones, and the open state.
-- [`examples/aav2_capsid/`](examples/aav2_capsid): AAV2 capsid on purified virus-like particles
-  (EMPIAR-10202) with the icosahedral grid reduction (`symmetryFile`): symmetry operators from a
-  deposited full assembly, CTF and positive control from the published RELION particle list, and the
-  detected capsids coloured by radius.
-- [`docs/FAQ.md`](docs/FAQ.md): common problems (jobs, GPU memory, `.par` pitfalls, CTF and pixel size,
-  thresholds and noise, controls) with causes, fixes and commands.
+The 60 rotations of the capsid are derived from the deposited model, and the angular grid is
+reduced to one asymmetric unit (`symmetryFile`): 38,200 instead of about 2.3 M orientations at
+1.88°. On 50 micrographs the search found 2,615 of the 2,621 particles of the published list
+(99.8%), with orientations within 0.45° (median) of the published ones. Commands, checks and the
+export to a reconstruction: [examples/aav2_capsid](examples/aav2_capsid).
+
+![AAV2 capsids detected in one micrograph](examples/aav2_capsid/results/figures/summary.png)
+
+## Example 4: TRiC in cell lamellae (DeCo-LACE)
+
+A ~1 MDa chaperonin at low copy number in FIB-milled cells. The example is built around the
+controls: the deposited ribosome detections as positive control, phase-randomised tiles for the
+noise rate after refinement, a decoy protein, image-artifact zones, and the open state searched on
+the same tiles. Scripts and the one-page summary: [examples/decolace_tric](examples/decolace_tric).
+
+## Troubleshooting
+
+[`docs/FAQ.md`](docs/FAQ.md): jobs, GPU memory, `.par` pitfalls, CTF and pixel size, thresholds and
+noise, controls, symmetric templates and reconstruction from the detections, each with cause, fix
+and command.
 
 ## Repository layout
 
 | Path | Contents |
 |---|---|
-| `smap/` | the port: `search_global` (setup, GPU search, combine, CLI), `refine` (clustering, refinement, optimisation, output files), `structure` (atomic model → scattering potential), `ctf`, `grid`, `rot`, `io`, `utils`, `stats`; new: `compare`, `decoy`, `export`, `pvalue`, `provenance`, `symmetry` |
+| `smap/` | the port: `search_global` (setup, GPU search, combine, CLI), `refine` (clustering, refinement, optimisation, output files), `structure` (atomic model → scattering potential), `ctf`, `grid`, `rot`, `io`, `utils`; new: `stats`, `cutoff`, `pvalue`, `decoy`, `qc`, `bias`, `compare`, `export`, `symmetry`, `provenance` |
 | `examples/ribosome_in_situ/` | upstream SMAP v2.1 sample: image, LSU target, ribosome decoy, rotations, `sample_search.par`; whole-micrograph searches (`full_search.par`, `full_search_decoy.par`) and their figures |
 | `examples/rnf213_purified/` | RNF213 pilot: workflow recap, workflow scripts, results (figures, tables) |
-| `examples/aav2_capsid/` | AAV2 capsid: icosahedral search, `.par` files from a RELION STAR file, comparison with the published particles, figures |
+| `examples/aav2_capsid/` | AAV2 capsid: icosahedral search, `.par` files from a RELION STAR file, comparison with the published particles, figures, export and reconstruction check |
 | `examples/decolace_tric/` | TRiC in DeCo-LACE lamellae: tile selection, searches, controls, re-refinement, review and one-page summary; TRiC templates (closed, open) |
-| `tools/` | `gpu_smoke.py`, `make_decoy_model.py`, `gen_sf_table.py`, `search_figures.py` (poses, z-score map and landscape of one search), `ctf_check.py` (CTF against the Thon rings), `cryosparc_ctf_to_pars.py` (per-micrograph `.par` from cryoSPARC), `star_to_pars.py` (per-micrograph `.par` and particle lists from a RELION STAR file), `match_positions.py` (detections against a reference particle list), `template_views.py` (templates along the symmetry axes before and after CTF and whitening), `radial_scan.py` (positions, pixel size, defocus and contrast sign of near-spherical particles, without an orientation search); `tools/rnf213/`: tile runner, correlograms, micrograph landscape |
+| `tools/` | command-line scripts around a search: preparing `.par` files, checks, figures, export and reconstruction check; grouped by task in [`tools/README.md`](tools/README.md) |
 | `tests/` | Octave-parity tests (references generated from the original MATLAB code), synthetic end-to-end, CLI and tool tests |
 | `experiments/` | small numerical studies behind the optional improvements |
 | `docs/` | upstream SMAP v2.1 README, figures, interactive banner (`hrtm_banner.html`), [`FAQ.md`](docs/FAQ.md) |
@@ -251,7 +267,8 @@ If you use this software, please cite the original method and software:
 and, when you use the p-value maps: Zhang K. et al., *IUCrJ* 12 (2025)
 ([eh5020](https://journals.iucr.org/m/issues/2025/02/00/eh5020/)).
 
-RNF213 example data: EMPIAR-10711; model PDB 7OIK (Ahel J. et al.).
+Example data: RNF213, EMPIAR-10711 and PDB 7OIK (Ahel J. et al.); AAV2, EMPIAR-10202 and PDB 6E9D
+(Tan Y.Z. et al., *Nat. Commun.* 9, 3628, 2018); DeCo-LACE, EMPIAR-11063 (Elferich J. et al., *eLife* 2022).
 
 ## License
 

@@ -57,6 +57,7 @@ METHODS = ("erfc_v21", "gev_bulk", "gpd_pixel", "gpd_cluster", "decoy")
 
 
 def n_clusters(z: np.ndarray, x: float, mask: np.ndarray | None = None) -> int:
+    """Number of connected clusters (8-connectivity) of pixels above x, inside mask."""
     b = z > x
     if mask is not None:
         b &= mask
@@ -73,6 +74,8 @@ def disc_mask(z: np.ndarray, x: float, radius: float, valid: np.ndarray) -> np.n
 
 
 def fit_gev(values: np.ndarray, max_samples: int = 200_000, seed: int = 0):
+    """GEV fit to the values (a random subset above max_samples).
+    Returns (frozen distribution, (shape, loc, scale))."""
     v = np.asarray(values, dtype=np.float64)
     if v.size > max_samples:
         v = np.random.default_rng(seed).choice(v, max_samples, replace=False)
@@ -99,10 +102,12 @@ def cluster_ratio_fit(z: np.ndarray, mask: np.ndarray, min_clusters: int = 20, n
 
 
 def _r_of(x: float, fit: dict) -> float:
+    """Clusters per exceeding pixel at threshold x, from the fit of cluster_ratio_fit (at most 1)."""
     return float(min(1.0, np.exp(fit["a"] + fit["b"] * np.log(max(x, 1e-6)))))
 
 
 def _solve(fun, lo: float, hi: float) -> float:
+    """Root of fun between lo and hi (NaN when fun does not change sign there)."""
     if fun(lo) * fun(hi) > 0:
         return float("nan")
     return float(brentq(fun, lo, hi, xtol=1e-4))
@@ -121,6 +126,7 @@ def fit_tail(values: np.ndarray, tail_q: float = 0.99):
 
 
 def tail_sf(x, u: float, shape: float, scale: float, tail_q: float):
+    """Survival function of the tail model: (1 - tail_q) x GPD_sf(x - u)."""
     return (1 - tail_q) * genpareto.sf(np.asarray(x) - u, shape, 0, scale)
 
 
@@ -158,6 +164,8 @@ def tail_cutoff(z: np.ndarray, valid: np.ndarray, n_false: float = 1.0, radius: 
     hi = float(z[valid].max()) + 20
 
     def build(level, r):
+        """Pixels kept for the fit: valid, outside discs of radius r around the centres and
+        around clusters above level."""
         m = valid.copy()
         if centres is not None and len(centres):
             m &= centre_mask(z.shape, centres, r)
@@ -166,6 +174,7 @@ def tail_cutoff(z: np.ndarray, valid: np.ndarray, n_false: float = 1.0, radius: 
         return m
 
     def guarded(level, r):
+        """build(), halving r until at least min_keep of the valid pixels remain."""
         m = build(level, r)
         while m.sum() < min_keep * n and r > 2:
             r /= 2
@@ -295,6 +304,7 @@ def analysis_mask(out_dir, valid: np.ndarray, edge_px: float = 0.0, sd_floor: fl
 
 
 def load_z(out_dir, edge_px: float = 0.0, with_info: bool = False):
+    """The search z-score map and the mask of pixels to analyse (with_info: also its description)."""
     z = sio.mr(Path(out_dir) / "search_mip_scaled.mrc").astype(np.float64)
     keep, info = analysis_mask(out_dir, z != 0, edge_px)
     return (z, keep, info) if with_info else (z, keep)
@@ -312,6 +322,8 @@ def search_centres(out_dir) -> list:
 
 
 def report(out_dir, n_false: float = 1.0, radius: float = 10.0, decoys=(), tail_q: float = 0.99) -> dict:
+    """Every cutoff of one search (v2.1 threshold, GEV, tail fits, decoys) and the number of
+    clusters observed above each."""
     out_dir = Path(out_dir)
     z, valid, info = load_z(out_dir, edge_px=radius, with_info=True)
     rep = dict(out_dir=str(out_dir), n_false=n_false, radius_px=radius, analysis_mask=info)
@@ -328,6 +340,7 @@ def report(out_dir, n_false: float = 1.0, radius: float = 10.0, decoys=(), tail_
 
 
 def plot(rep: dict, z: np.ndarray, valid: np.ndarray, path) -> None:
+    """Survival curve of the z-scores with the fitted models and the cutoffs, saved to path."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt

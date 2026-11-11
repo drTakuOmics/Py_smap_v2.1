@@ -45,6 +45,7 @@ FINAL_FILES = ("particles.txt", "particles.par", "particles.mrc", "templates.mrc
 # ------------------------------------------------------------------ helpers
 
 def sha256(path) -> str:
+    """SHA-256 of a file."""
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for block in iter(lambda: f.read(1 << 20), b""):
@@ -53,10 +54,12 @@ def sha256(path) -> str:
 
 
 def stamp() -> str:
+    """UTC time stamp for folder names (YYYYMMDDTHHMMSSZ)."""
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
 def par_value(text: str, key: str):
+    """Value of a key in the .par text ('#' starts a comment; None if absent)."""
     for line in text.splitlines():
         f = line.split("#", 1)[0].split(None, 1)
         if len(f) == 2 and f[0] == key:
@@ -65,6 +68,7 @@ def par_value(text: str, key: str):
 
 
 def set_par(text: str, changes: dict) -> str:
+    """The .par text with the given keys set: first occurrence replaced, repeats dropped, new keys appended."""
     lines, seen = [], set()
     for line in text.splitlines():
         f = line.split("#", 1)[0].split()
@@ -79,6 +83,7 @@ def set_par(text: str, changes: dict) -> str:
 
 
 def to_project(root: Path, value: str) -> Path:
+    """A path from a v2.1 .par ('/work/...' or relative) as a path inside the project folder."""
     p = root / value[len("/work/"):] if value.startswith("/work/") else Path(value)
     return p if p.is_absolute() else root / p
 
@@ -91,10 +96,12 @@ def like_original(root: Path, original: str, new_path: Path) -> str:
 
 
 def tile_trees(src: Path):
+    """Folders below src that hold a tile_offsets.csv (one per micrograph)."""
     return sorted(p.parent for p in src.rglob("tile_offsets.csv"))
 
 
 def read_offsets(tree: Path):
+    """Rows of a tree's tile_offsets.csv."""
     with open(tree / "tile_offsets.csv", newline="") as f:
         return list(csv.DictReader(f))
 
@@ -118,6 +125,7 @@ def complete(tile: Path) -> bool:
 
 
 def all_tiles(tiles: Path):
+    """Every tile folder listed in the tile_offsets.csv files below tiles."""
     out = []
     for tree in tile_trees(tiles):
         for row in read_offsets(tree):
@@ -126,6 +134,7 @@ def all_tiles(tiles: Path):
 
 
 def known_keys():
+    """The .par keys the port knows (used to reject typos in --set)."""
     try:
         from smap.io import SEARCH_GLOBAL_DEFAULTS
     except ImportError as e:
@@ -136,6 +145,9 @@ def known_keys():
 # ------------------------------------------------------------------ commands
 
 def prepare(root: Path, src: Path, dest: Path, sets: list[str]):
+    """Build a parallel tile tree for the port: copies of the search.par files with imageFile and
+    outputDir re-pointed (plus --set options) and the tile images hard-linked. The source tree is
+    not changed."""
     if dest.exists():
         raise SystemExit(f"{dest} exists; choose a new --dest (nothing is overwritten)")
     keys = known_keys()
@@ -220,6 +232,8 @@ def prepare(root: Path, src: Path, dest: Path, sets: list[str]):
 
 
 def run(root: Path, tiles: Path, only, device, batch_size, keep_going, dry, images=None):
+    """Run the port on every tile that is not complete (optionally only some tiles or micrographs);
+    unfinished attempts are archived."""
     todo = [t for t in all_tiles(tiles) if (not only or t.name in only)
             and (not images or t.parent.name in images)]
     if images and not todo:
@@ -268,6 +282,7 @@ def run(root: Path, tiles: Path, only, device, batch_size, keep_going, dry, imag
 
 
 def status(tiles: Path):
+    """Print the number of tiles, completed tiles and candidates with final score >= 8."""
     n = n8 = c = 0
     for tile in all_tiles(tiles):
         n += 1
@@ -284,6 +299,7 @@ def status(tiles: Path):
 
 
 def compare(a: Path, b: Path, out: Path):
+    """smap.compare for every tile complete in both trees; writes per_tile.csv below out."""
     from smap.compare import compare_outputs
     out.mkdir(parents=True, exist_ok=True)
     rows = []

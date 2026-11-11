@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))     # repo root (sm
 
 
 def rotation_order(M: np.ndarray, max_order: int = 6) -> int:
+    """Order of a rotation: the smallest n <= max_order with M^n = identity (0 if there is none)."""
     P = np.eye(3)
     for k in range(1, max_order + 1):
         P = P @ M

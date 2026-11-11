@@ -98,3 +98,9 @@ def test_match_positions(tmp_path):
     rows = list(csv.DictReader(open(f / "match_ref.csv")))
     assert [r["reference_index"] for r in rows] == ["0", "1", "-1", "3"]
     assert mod.pair(np.array([[0.0, 0.0]]), np.array([[3.0, 4.0]]), 5.0) == [(0, 0)]
+    (tmp_path / "coords").mkdir()
+    (tmp_path / "coords" / "res.csv").write_text((tmp_path / "ref.csv").read_text())
+    assert mod.main([str(f), "--reference-dir", str(tmp_path / "coords"), "--radius-A", "10",
+                     "--summary", str(tmp_path / "sum.csv")]) == 0
+    r = next(csv.DictReader(open(tmp_path / "sum.csv")))
+    assert (r["found"], r["missed"], r["extra"], r["inside"]) == ("2", "1", "1", "3")

@@ -44,6 +44,9 @@ from .utils import (assign_jobs, crop_or_pad, mask_a_volume, mask_central_cross,
 
 @dataclass
 class SearchSetup:
+    """State of one search after setup (prepare): parameters, orientation list, the whitened image and
+    its transform, the CTF stack and the Fourier transform of the template potential. Arrays use
+    the MATLAB layout [row, col(, page)]."""
     params: dict
     out_dir: Path
     scratch_dir: Path
@@ -65,10 +68,12 @@ class SearchSetup:
 
     @property
     def n_dfs(self) -> int:
+        """Number of defocus planes."""
         return self.defocus.shape[0]
 
 
 def _log(setup_or_list, msg: str):
+    """Print a message and, when given a list, also keep it for the run log."""
     print(msg)
     if isinstance(setup_or_list, list):
         setup_or_list.append(msg)
@@ -379,6 +384,7 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
             device = "cpu"
     dev = torch.device(device)
 
+    # ---- orientations of this job (1-based indices into the full list)
     n_cores = int(p["nCores"])
     R_inds = assign_jobs(st.R_full.shape[0], n_cores, jobref)  # 1-based
     if max_rotations is not None:
@@ -387,12 +393,14 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
     file_mult = int(R_inds[0]) - 1
     n_rot = R.shape[0]
 
+    # ---- sizes: template N, padded image (N0, N1), half spectrum (h0, N1), nD defocus planes
     N = st.Npix
     N0, N1 = st.Npix_im
     h0 = N0 // 2 + 1
     nD = st.n_dfs
     cp = N // 2 + 1
 
+    # ---- Fourier volume of the potential and the sampling grid of the central slice
     K = st.oversample
     vdt = np.float64 if K == 1 else np.float32   # oversampled volumes kept in single precision
     Vr = torch.as_tensor(np.ascontiguousarray(st.V_F.real.astype(vdt)), device=dev).double()
@@ -403,6 +411,7 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
     gy = (rr - cp) * K    # y varies along rows
     cpV = st.V_F.shape[0] // 2 + 1
 
+    # ---- image spectrum, whitening filter and CTF stack (half spectra)
     imF = torch.as_tensor(st.imref_F_half, device=dev)                 # (h0,N1) c64
     fPSD = torch.as_tensor(st.fPSD_half, device=dev)                   # (h0,N1) f32
     # MATLAB multiplies the single-precision template spectrum by the double CTF, which
@@ -415,6 +424,8 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
     off0 = (N0 // 2 + 1) - (N // 2 + 1)
     off1 = (N1 // 2 + 1) - (N // 2 + 1)
 
+    # ---- accumulators: sum and sum of squares of the CC at every pixel and defocus plane
+    # (mean and SD over orientations, used for the flat-fielding in combine)
     sum1 = torch.zeros((nD, N1, N0), dtype=torch.float64, device=dev)  # stored transposed
     sum2 = torch.zeros_like(sum1)
     SD_all = torch.zeros((n_rot, nD), dtype=torch.float32, device=dev)  # copied once at the end
@@ -427,6 +438,7 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
     arb_chunks = []
     arb_thr = float(p["arbThr"])
 
+    # ---- main loop: one batch of orientations per pass
     t0 = time.time()
     R_t = torch.as_tensor(R, device=dev)
     for b0 in range(0, n_rot, batch_size):
@@ -436,6 +448,7 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
         timg = torch.zeros((B, N0, N1), dtype=torch.float32, device=dev)
         timg[:, off0:off0 + N, off1:off1 + N] = templ.to(torch.float32)
 
+        # template spectrum: whitened, one copy per defocus plane with its CTF, scaled to unit SD
         temp = torch.fft.rfftn(timg, dim=(2, 1))                       # (B,h0,N1) c64
         temp = temp / scale_temp
         temp = temp * fPSD
@@ -443,6 +456,7 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
         v = (tF.real ** 2 + tF.imag ** 2).sum(dim=(2, 3))              # float32
         SD = torch.sqrt(2.0 * v / norm_factor)
         tF = tF / SD[:, :, None, None]
+        # cross-correlation with the image for every orientation and defocus plane
         ccF = imF[None, None] * torch.conj(tF)
         cc = torch.fft.irfftn(ccF, s=(N1, N0), dim=(3, 2), norm="forward")
         cc = cc / math.sqrt(norm_factor)                               # (B,nD,N0,N1) f32
@@ -456,6 +470,7 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
             mip = torch.where(upd, bmax, mip)
             mip_idx = torch.where(upd, (barg + b0 + 1 + file_mult).to(torch.float32), mip_idx)
 
+        # values above arbThr are kept with their location and orientation index
         hit = ccd > arb_thr
         if bool(hit.any()):
             ib, ij, ic, ir = torch.nonzero(hit, as_tuple=True)        # col-major order
@@ -470,6 +485,7 @@ def run_job(st: SearchSetup, jobref: int, device=None, batch_size: int = 1,
             print(f"job {jobref}: {done}/{n_rot} orientations, "
                   f"{1000 * dt / done:.1f} ms/orientation")
 
+    # ---- results of this job and its scratch files
     arb = np.concatenate(arb_chunks, 0) if arb_chunks else np.zeros((0, 3))
     s1 = sum1.permute(2, 1, 0).cpu().numpy()   # back to (N0,N1,nD)
     s2 = sum2.permute(2, 1, 0).cpu().numpy()
@@ -521,6 +537,7 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
     n_rot_full = st.R_full.shape[0]
     out = st.out_dir
 
+    # ---- completeness: orientations evaluated by all jobs against the full list
     n_eval = 0
     for j in range(1, n_jobs + 1):
         f = st.scratch_dir / f"search_{zp_int(j)}_status.json"
@@ -530,6 +547,7 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
         print(f"WARNING: incomplete search ({n_eval} of {n_rot_full} orientations evaluated); "
               "moments and trial counts use the evaluated number; not a v2.1-equivalent run")
         n_rot_full = n_eval
+    # ---- merge the jobs: sums, per-rotation SDs and the values kept above arbThr
     n_samples = n_rot_full * float(np.prod(st.dims_imref)) * nD
     sum_g = np.zeros((N0, N1, nD))
     ssum_g = np.zeros((N0, N1, nD))
@@ -547,6 +565,8 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
             sum_g += s.reshape(N0, N1, nD)
             ssum_g += ss.reshape(N0, N1, nD)
 
+    # ---- mean and SD of the CC over orientations at every pixel and defocus plane;
+    # locations of the kept values as 1-based [row, col, plane]
     mean_im = sum_g / n_rot_full
     sd_im = np.sqrt(ssum_g / n_rot_full - mean_im ** 2)
     av_all = np.concatenate(av_list, 0) if av_list else np.zeros((0, 3))
@@ -556,6 +576,7 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
     z = (al - 1) // (N0 * N1) + 1
     locs = np.column_stack([r, c, z])
 
+    # ---- drop values in the border (padding and half a template; margin_pix overrides)
     cp_t = st.Npix // 2 + 1
     cp_im = np.array([N0 // 2 + 1, N1 // 2 + 1])
     margin = np.floor((np.array(st.Npix_im) - np.array(st.dims_imref)) / 2) + 1 + math.floor(cp_t / 2) + 1
@@ -565,11 +586,13 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
     keep = ~((xa[:, 0] > cp_im[0] - margin[0]) | (xa[:, 1] > cp_im[1] - margin[1]))
     ai, av, locs = ai[keep], av[keep], locs[keep]
 
+    # ---- flat-fielding: (value - mean) / SD at its pixel; sorted ascending
     li = (locs[:, 0] - 1, locs[:, 1] - 1, locs[:, 2] - 1)
     av_norm = (av - mean_im[li]) / sd_im[li]
     order = np.argsort(av_norm, kind="stable")
     av_norm, ai, locs = av_norm[order], ai[order], locs[order]
 
+    # ---- maps of the best flat-fielded value per pixel and plane, and its orientation index
     ff = np.zeros((N0, N1, nD))
     ff_inds = np.zeros((N0, N1, nD))
     if av_norm.size:
@@ -583,6 +606,7 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
     sio.mw(ff_inds, out / "search_qInds.mrc", p["aPerPix"])
 
     if av_norm.size:
+        # survival histogram of the flat-fielded values against the Gaussian expectation
         xs = np.linspace(av_norm.min(), av_norm.max(), 10000)
         nt = _hist_centers(av_norm, xs)
         y_meas = nt.sum() - np.cumsum(nt)
@@ -591,6 +615,7 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
             for a_, b_, c_ in zip(xs, y_model, y_meas):
                 fh.write("%8.4f\t%12.3f\t%12i\n" % (a_, b_, int(round(c_))))
 
+    # ---- v2.1 threshold: one expected false positive among all trials of the search
     thr = math.sqrt(2) * erfcinv(2.0 / (n_rot_full * (N0 * N1) * nD))
     hi = np.nonzero(av_norm > thr)[0]
     print(f"found {hi.size} values above threshold ({thr:.3f})")
@@ -599,6 +624,7 @@ def combine(st: SearchSetup, n_jobs: int | None = None):
             for k in hi:
                 fh.write("%i\t%8.3f\t%i\t%i\t%i\n" % (ai[k], av_norm[k], *locs[k]))
 
+    # ---- maps, MIP and p-value maps, calibration summary and provenance
     sio.mw(mean_im, out / "search_mean.mrc", p["aPerPix"])
     sio.mw(sd_im, out / "search_SD.mrc", p["aPerPix"])
     sio.write_single(out / "search_SDs.dat", np.concatenate(SDl) if SDl else [])
@@ -696,6 +722,7 @@ def main(argv=None) -> int:
         fh = open(a.log, "a", encoding="utf-8")  # noqa: SIM115 (closed in finally)
 
         class _Tee:
+            """Stream that writes to several streams at once (terminal and --log file)."""
             def __init__(self, *s): self.s = s
             def write(self, x):
                 for t in self.s:
@@ -719,6 +746,8 @@ def main(argv=None) -> int:
 
 
 def _main(a, ap) -> int:
+    """Run the jobs asked for, then combine and refine once every job has finished.
+    Returns the exit code (2: incomplete debug run, not refined)."""
     pm = []
     for item in a.path_map:
         if "=" not in item:

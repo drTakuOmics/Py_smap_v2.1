@@ -69,6 +69,7 @@ def _plane_values(vol: np.ndarray, plane: np.ndarray) -> np.ndarray:
 
 
 def prominence(z: np.ndarray, r: int, c: int, r_in: float, r_out: float) -> float:
+    """z at (r, c) minus the median z in the ring r_in..r_out around it (NaN without valid ring pixels)."""
     rr, cc = np.ogrid[:z.shape[0], :z.shape[1]]
     d = np.hypot(rr - r, cc - c)
     ring = (d >= r_in) & (d <= r_out) & (z != 0)
@@ -88,6 +89,8 @@ def anisotropy(z_smooth: np.ndarray, r: int, c: int) -> float:
 
 
 def load_maps(out_dir: Path) -> dict:
+    """Maps of one search at each pixel's best defocus plane: z, mean and SD over orientations,
+    -ln p (if written) and the mask of valid pixels."""
     out_dir = Path(out_dir)
     need = ["search_mip_scaled.mrc", "search_mean.mrc", "search_SD.mrc"]
     missing = [n for n in need if not (out_dir / n).exists()]
@@ -134,6 +137,8 @@ def _ratio_flags(x, y, k: float, noise_sd: float):
 def run_qc(out_dir, k: float = 5.0, particle_radius_px: float = 10.0, image_info: dict | None = None,
            ctf_window=None, thickness_window=None, max_anisotropy: float | None = None,
            min_population: int = 6) -> dict:
+    """Features and flags of every candidate in particles.csv (see the module docstring).
+    Returns dict(rows=..., summary=...)."""
     out_dir = Path(out_dir)
     m = load_maps(out_dir)
     valid = m["valid"]
@@ -203,6 +208,7 @@ def run_qc(out_dir, k: float = 5.0, particle_radius_px: float = 10.0, image_info
 
 
 def write_qc(res: dict, out_dir) -> None:
+    """Write particles_qc.csv (one row per candidate) and particles_qc.json (summary)."""
     out_dir = Path(out_dir)
     rows = res["rows"]
     cols = ["num_id", "score_final", "z_search", "neg_log_p", "cc_mean", "cc_sd", "signal", "mean_ratio",

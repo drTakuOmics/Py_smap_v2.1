@@ -37,6 +37,7 @@ SCORE_FILES = {"final": ("particles.txt", 1), "refined": ("list_final.txt", 0)}
 
 
 def read_scores(out_dir: Path, score: str = "final") -> np.ndarray:
+    """Scores of the refined candidates of one output folder ('final' or 'refined')."""
     name, col = SCORE_FILES[score]
     m = _matrix(Path(out_dir) / name)
     return m[:, col].astype(np.float64) if m.size else np.zeros(0)
@@ -49,6 +50,7 @@ def count_ge(scores: np.ndarray, cutoffs: np.ndarray) -> np.ndarray:
 
 
 def fdr_curve(target: np.ndarray, decoy: np.ndarray, cutoffs: np.ndarray):
+    """Counts of target and decoy scores >= each cutoff (ascending), FDR = decoy / target and q."""
     nt = count_ge(target, cutoffs)
     nd = count_ge(decoy, cutoffs)
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -70,6 +72,8 @@ def q_values(target: np.ndarray, decoy: np.ndarray) -> np.ndarray:
 
 
 def calibrate(pairs, score="final", cutoffs=None, report_cutoff=8.0) -> dict:
+    """Target-decoy calibration over pairs of output folders (target, decoy): counts, FDR and q
+    along the cutoffs, the first cutoffs with q <= 0.05 and 0.01, and q for every target score."""
     tgt = np.concatenate([read_scores(t, score) for t, _ in pairs]) if pairs else np.zeros(0)
     dec = np.concatenate([read_scores(d, score) for _, d in pairs]) if pairs else np.zeros(0)
     if cutoffs is None:
@@ -79,6 +83,7 @@ def calibrate(pairs, score="final", cutoffs=None, report_cutoff=8.0) -> dict:
     nt, nd, fdr, q = fdr_curve(tgt, dec, cutoffs)
 
     def first_cut(level):
+        """Lowest cutoff with q <= level and at least one target."""
         ok = np.nonzero((q <= level) & (nt > 0))[0]
         return float(cutoffs[ok[0]]) if ok.size else None
 
@@ -99,6 +104,7 @@ def calibrate(pairs, score="final", cutoffs=None, report_cutoff=8.0) -> dict:
 
 
 def plot(rep: dict, path_base: Path) -> None:
+    """Counts and q against the cutoff as <path_base>.png and .pdf (skipped without matplotlib)."""
     try:
         import matplotlib
         matplotlib.use("Agg")

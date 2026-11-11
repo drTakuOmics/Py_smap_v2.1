@@ -59,6 +59,8 @@ def read_atoms(path):
 
 
 def masses(tab):
+    """Mass of every atom as modelled, and with hydrogens: when the model has none, a fraction
+    per residue class (protein, nucleic acid) is added. Returns (heavy, with_h)."""
     heavy = np.array([MASS.get(e, 12.0) for e in tab["element"]])
     heavy[tab["element"] == "H"] = MASS["H"]
     has_h = (tab["element"] == "H").any()
@@ -97,6 +99,7 @@ def fragment(path, radius_nm=None, mw_kda=None, chains=None, implicit_h=False):
 
 
 def write(header, lines, out, info):
+    """Write the fragment as mmCIF (header and atom lines) and its description as .json."""
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w") as fh:

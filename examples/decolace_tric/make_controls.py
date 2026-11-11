@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import os
 import sys
 from pathlib import Path
 
@@ -24,6 +23,8 @@ import numpy as np
 
 
 def set_keys(lines, values: dict) -> list:
+    """The lines with the given keys set: the first occurrence is replaced, repeats are dropped
+    and keys not present are appended."""
     out, done = [], set()
     for ln in lines:
         t = ln.split()
@@ -37,6 +38,7 @@ def set_keys(lines, values: dict) -> list:
 
 
 def find(dirpath: Path, key: str) -> Path:
+    """The one .par in dirpath whose name contains key (error otherwise)."""
     hits = sorted(p for p in dirpath.glob("*.par") if key in p.stem)
     if len(hits) != 1:
         raise SystemExit(f"{key}: {len(hits)} matches in {dirpath}")
@@ -62,6 +64,7 @@ def main(argv=None) -> int:
     jobs = []
 
     def write(src: Path, name: str, extra: dict):
+        """Write a control .par: a copy of src with the extra keys and its own output folder."""
         lines = set_keys(src.read_text().splitlines(), dict(extra, outputDir=d / "results_controls" / name))
         par = pc / f"{name}.par"
         par.write_text("\n".join(lines) + "\n")

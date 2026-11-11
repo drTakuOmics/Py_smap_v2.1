@@ -26,6 +26,7 @@ W_POT = 4.871  # "Rullgard's calculation" (mean inner potential offset)
 
 @dataclass
 class Atoms:
+    """Atomic model as read from a PDB or mmCIF file."""
     xyz: np.ndarray        # (3, n) Angstrom
     atom_list: list        # labels whose first character selects the scattering factor
     b_factor: np.ndarray   # (n,)
@@ -81,6 +82,7 @@ def read_cif_file(fn: str | Path, chains: list[str] | None = None) -> Atoms:
 
 
 def _truncate_nan(at: Atoms) -> Atoms:
+    """Drop the first atom with a missing coordinate and every atom after it."""
     bad = np.nonzero(np.isnan(at.xyz).any(axis=0))[0]
     if bad.size:
         k = bad[0]
@@ -89,6 +91,8 @@ def _truncate_nan(at: Atoms) -> Atoms:
 
 
 def parameterize_sf(elem: str):
+    """Scattering-factor parameters of an element: (a, b), five Gaussian terms each.
+    An unknown element gets zeros (no scattering) and a message."""
     g = SF_TABLE.get(elem)
     if g is None:
         print(f"did not find atom type {elem}")

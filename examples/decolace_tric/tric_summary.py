@@ -3,8 +3,10 @@
 
 Collects what exists (nothing is searched): the status table, the TRiC report(s) at both cutoffs,
 the ribosome control against the authors, the picked TRiC templates for closed and open state on
-the same tiles (tools/search_figures.py: poses on the micrograph and template/patch pairs), and the
-FAQ. Re-run it any time; figures are made only once per search.
+the same tiles (tools/search_figures.py: poses on the micrograph and template/patch pairs; closed
+teal, open magenta), both states on the same micrograph as found (tools/overlay_figures.py), and
+the FAQ. Re-run it any time; figures are made once per search (again when the search or the colour
+changes). --tag opt6.5 uses results_TRiC_opt6.5 and results_TRiC_open_opt6.5 where they exist.
 
   cd $PYSMAP
   python examples/decolace_tric/tric_summary.py --dest $WORK
@@ -16,6 +18,7 @@ from __future__ import annotations
 import argparse
 import csv
 import html
+import json
 import os
 import re
 import shutil
@@ -23,6 +26,8 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+CLOSED, OPEN = "#17a2a2", "#d63fa0"          # TRiC closed (teal) and open (magenta) in every figure
 
 CSS = """
 :root { --ink:#1f2328; --ink2:#59636e; --rule:#d8dee4; --bg:#ffffff; --panel:#f6f8fa; --accent:#2a78d6; }
@@ -47,12 +52,14 @@ table { border-collapse:collapse; font-size:13px; margin:6px 0 12px; } td, th { 
 
 
 def esc(s) -> str:
+    """HTML-escaped text."""
     return html.escape(str(s))
 
 
 def md_to_html(text: str) -> str:
     """Small Markdown subset: headings, fenced code, lists, pipe tables, inline code and bold."""
     def inline(s: str) -> str:
+        """Inline Markdown (`code`, **bold**) as HTML."""
         s = esc(s)
         s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
         return re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", s)
@@ -104,6 +111,7 @@ def md_to_html(text: str) -> str:
 
 
 def csv_table(path: Path, cols=None) -> str:
+    """A CSV file as an HTML table (optionally only some columns; '' if missing or empty)."""
     if not path.exists():
         return ""
     rows = list(csv.DictReader(open(path)))
@@ -115,31 +123,65 @@ def csv_table(path: Path, cols=None) -> str:
 
 
 def img(page_dir: Path, p: Path, caption: str = "") -> str:
+    """An image as a linked <figure> with an optional caption, relative to the page folder."""
     rel = os.path.relpath(p, page_dir)
     cap = f"<div class='note'>{esc(caption)}</div>" if caption else ""
     return f"<figure style='margin:6px 0'><a href='{esc(rel)}'><img src='{esc(rel)}' loading='lazy'></a>{cap}</figure>"
 
 
 def finished(f: Path) -> bool:
+    """True once the search folder has a .done marker or particles.csv."""
     return (f / ".done").exists() or (f / "particles.csv").exists()
 
 
 def tile_key(name: str) -> str:
+    """Five-digit tile number in a folder name."""
     m = re.search(r"_(\d{5})_", name)
     return m.group(1) if m else name
 
 
-def make_figures(repo: Path, result: Path, out: Path, cutoff: float, label: str, log) -> bool:
-    """tools/search_figures.py once per search (redone if the search is newer than the figures)."""
-    if (out / "summary.png").exists() and (out / "summary.png").stat().st_mtime > (result / "particles.csv").stat().st_mtime:
-        return True
+def _current(out: Path, png: str, meta: str, inputs, **want) -> bool:
+    """Figures in ``out`` newer than every input and made with the wanted settings."""
+    f, m = out / png, out / meta
+    if not f.exists() or not m.exists() or any(f.stat().st_mtime <= Path(i).stat().st_mtime for i in inputs):
+        return False
+    got = json.loads(m.read_text())
+    return all(got.get(k) == v for k, v in want.items())
+
+
+def make_figures(repo: Path, result: Path, out: Path, cutoff: float, label: str, log, color: str = CLOSED) -> bool:
+    """tools/search_figures.py once per search (redone if the search, cutoff or colour changed)."""
+    if _current(out, "summary.png", "figures.json", [result / "particles.csv"], cutoff=cutoff, label=label):
+        if json.loads((out / "figures.json").read_text()).get("color") == color:     # older figures: no colour
+            return True
     if out.exists():
         shutil.rmtree(out)
     cmd = [sys.executable, str(repo / "tools" / "search_figures.py"), str(result), "--cutoff", f"{cutoff:g}",
-           "--out", str(out), "--label", label]
+           "--out", str(out), "--label", label, "--color", color]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         log(f"  figures failed for {result.name}: {(r.stderr or r.stdout).strip().splitlines()[-1:]}")
+        return False
+    return True
+
+
+def make_overlay(repo: Path, closed: Path, opened: Path, out: Path, cutoff: float, log) -> bool:
+    """tools/overlay_figures.py for the closed and open searches of one tile."""
+    ins = [closed / "particles.csv", opened / "particles.csv"]
+    if (out / "overlay.json").exists() and (out / "overlay.png").exists() and \
+            all((out / "overlay.png").stat().st_mtime > p.stat().st_mtime for p in ins):
+        m = json.loads((out / "overlay.json").read_text())
+        if [s.get("color") for s in m.get("searches", [])] == [CLOSED, OPEN] and \
+                all(s.get("cutoff") == cutoff for s in m.get("searches", [])):
+            return True
+    if out.exists():
+        shutil.rmtree(out)
+    cmd = [sys.executable, str(repo / "tools" / "overlay_figures.py"), str(closed), str(opened),
+           "--labels", "TRiC closed", "TRiC open", "--colors", CLOSED, OPEN, "--cutoff", f"{cutoff:g}",
+           "--out", str(out)]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        log(f"  overlay failed for {closed.name}: {(r.stderr or r.stdout).strip().splitlines()[-1:]}")
         return False
     return True
 
@@ -150,6 +192,7 @@ def main(argv=None) -> int:
     ap.add_argument("--strict", type=float, default=7.8, help="cutoff for the picked-template figures")
     ap.add_argument("--tiles", nargs="*", default=None, help="tiles for closed/open figures (default: all with open done)")
     ap.add_argument("--no-figures", action="store_true")
+    ap.add_argument("--tag", default="", help="e.g. opt6.5: re-refined closed/open folders where they exist")
     a = ap.parse_args(argv)
     d = Path(a.dest).expanduser().resolve()
     kit = Path(__file__).resolve().parent
@@ -177,7 +220,19 @@ def main(argv=None) -> int:
 
     # picked templates, closed vs open
     body = ""
-    open_dir, closed_dir = d / "results_TRiC_open", d / "results_TRiC"
+    sfx = f"_{a.tag}" if a.tag else ""
+    open_dir = d / f"results_TRiC_open{sfx}" if (d / f"results_TRiC_open{sfx}").is_dir() else d / "results_TRiC_open"
+    closed_dir = d / f"results_TRiC{sfx}" if (d / f"results_TRiC{sfx}").is_dir() else d / "results_TRiC"
+    log(f"closed: {closed_dir.name}, open: {open_dir.name}")
+    # A tagged (re-refined) folder for one state only: the two states were refined at different
+    # thresholds, so the state refined at the lower one had more candidates and the counts differ for
+    # that reason alone.
+    mixed = closed_dir.name.endswith(sfx) != open_dir.name.endswith(sfx) if sfx else False
+    if mixed:
+        body += ("<p class='note'><b>Closed and open come from different refinements</b> "
+                 f"({esc(closed_dir.name)}, {esc(open_dir.name)}): their counts are not comparable.</p>")
+        log(f"WARNING: closed and open were refined differently ({closed_dir.name}, {open_dir.name}); "
+            "their counts are not comparable. Re-refine both, or omit --tag.")
     tiles = a.tiles
     if tiles is None:
         tiles = sorted({tile_key(p.name) for p in open_dir.glob("*") if p.is_dir() and finished(p)})
@@ -187,10 +242,10 @@ def main(argv=None) -> int:
         if not c or not o:
             continue
         cols = []
-        for res, lab, sub in ((c, "TRiC closed", "closed"), (o, "TRiC open", "open")):
+        for res, lab, sub, colr in ((c, "TRiC closed", "closed", CLOSED), (o, "TRiC open", "open", OPEN)):
             out = rep / "figs" / f"{k}_{sub}"
-            ok = True if a.no_figures else make_figures(repo, res, out, a.strict, lab, log)
-            cell = f"<h4>{esc(lab)}</h4>"
+            ok = True if a.no_figures else make_figures(repo, res, out, a.strict, lab, log, colr)
+            cell = f"<h4 style='color:{colr}'>{esc(lab)}</h4>"
             if ok and (out / "poses_pairs.png").exists():
                 cell += img(rep, out / "poses_pairs.png", "micrograph patch | template at the found pose (top candidates)")
                 cell += img(rep, out / "summary.png", f"poses at >= {a.strict:g} | z map | landscape")
@@ -198,7 +253,16 @@ def main(argv=None) -> int:
                 cell += "<p class='note'>no figure (see the terminal)</p>"
             cols.append(f"<div>{cell}</div>")
         body += f"<h3>Tile {esc(k)}</h3><div class='pair'>{''.join(cols)}</div>"
-        log(f"tile {k}: closed/open figures")
+        ov = rep / "figs" / f"{k}_overlay"
+        if a.no_figures or make_overlay(repo, c, o, ov, a.strict, log):
+            if (ov / "overlay.png").exists():
+                m = json.loads((ov / "overlay.json").read_text())
+                body += "<h4>Closed and open on the same micrograph, as found</h4><div class='pair'><div>"
+                body += img(rep, ov / "overlay.png", f"filled: closed; outlined: open; {m['found_by_first_two']} "
+                                                    f"positions found by both (< {m['same_position_A']:g} Å)")
+                body += "</div><div>" + img(rep, ov / "overlay_pairs.png", "top positions: micrograph | closed | open | overlay")
+                body += "</div></div>" + csv_table(ov / "overlay.csv")
+        log(f"tile {k}: closed/open figures and overlay")
     if not body:
         body = "<p class='note'>no tile has both a closed and an open search yet</p>"
     secs.append(("poses", "TRiC templates at the found poses: closed vs open, same tiles", body))

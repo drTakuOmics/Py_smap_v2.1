@@ -25,7 +25,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import os
 import re
 import sqlite3
 import sys
@@ -36,6 +35,7 @@ import numpy as np
 
 
 def read_csv(p: Path) -> list:
+    """Rows of a CSV file ([] if it does not exist)."""
     return list(csv.DictReader(open(p))) if p.exists() else []
 
 
@@ -88,6 +88,8 @@ def match(a: np.ndarray, b: np.ndarray, r: float) -> list:
 
 
 def ours(res: Path, pixel: float) -> tuple:
+    """Detections of one search: positions (A), final scores and the search's own cutoff.
+    The rotations are left in ours.R."""
     rows = read_csv(res / "particles.csv")
     st = json.loads((res / "search_status.json").read_text()) if (res / "search_status.json").exists() else {}
     xy = np.array([[float(r["x_orig0_est"]) * pixel, float(r["y_orig0_est"]) * pixel] for r in rows]).reshape(-1, 2)
@@ -97,6 +99,8 @@ def ours(res: Path, pixel: float) -> tuple:
 
 
 def image_info(dest: Path, t: dict):
+    """Height and width of a tile's search image and its illumination mask (None without one).
+    The image itself is left in image_info.im."""
     from smap import io as sio
     img = Path(t["search_image"])
     im = sio.mr(img).astype(np.float32) if img.exists() else None
@@ -112,6 +116,8 @@ def image_info(dest: Path, t: dict):
 
 def chance_fraction(lsu_A: np.ndarray, mask, h: int, w: int, pixel: float, r: float, n: int = 4000,
                     seed: int = 0) -> float:
+    """Fraction of random positions (inside the mask, when given) that lie within r of a
+    ribosome: the overlap expected by chance."""
     if not len(lsu_A) or h == 0:
         return float("nan")
     rng = np.random.default_rng(seed)
@@ -135,6 +141,7 @@ def artifact_mask(img: np.ndarray, pixel: float, k: float = 5.0, margin_A: float
     L = gaussian_filter(img[:n0, :n1].reshape(n0 // b, b, n1 // b, b).mean(axis=(1, 3)), 1.5)
 
     def robust(x):
+        """Median and robust SD (1.4826 x MAD)."""
         med = np.median(x)
         return med, 1.4826 * np.median(np.abs(x - med)) + 1e-12
     med, mad = robust(L)
@@ -152,6 +159,7 @@ def artifact_mask(img: np.ndarray, pixel: float, k: float = 5.0, margin_A: float
 
 
 def in_mask(art: np.ndarray, b: int, xy_A: np.ndarray, pixel: float) -> np.ndarray:
+    """For each position (A): True if it falls in the artifact mask (binned by b pixels)."""
     if not len(xy_A):
         return np.zeros(0, bool)
     c = np.clip((xy_A[:, 0] / pixel / b).astype(int), 0, art.shape[1] - 1)
@@ -211,6 +219,7 @@ def main(argv=None) -> int:
     out.mkdir(exist_ok=True)
 
     def cut(thr):
+        """Cutoff of one search: its own threshold with --cutoff erfc, otherwise the number given."""
         return float(thr) if a.cutoff == "erfc" and thr else float(a.cutoff if a.cutoff != "erfc" else 7.5)
 
     # ---- LSU control: pick the coordinate convention, then match

@@ -43,6 +43,7 @@ SMAP_DA_PER_ATOM = 13.824
 
 
 def parse_ranges(spec):
+    """'A:10-250,B:1-80' -> [(chain, first residue, last residue), ...]."""
     out = []
     for item in (spec or "").split(","):
         item = item.strip()
@@ -106,6 +107,8 @@ def read_atoms(path, chains=None, exclude=None):
 
 
 def shape(xyz):
+    """Radius of gyration, principal-axis SDs and spans of a set of coordinates.
+    Returns (summary dict, principal axes as columns with the largest first, their SDs)."""
     c = xyz - xyz.mean(0)
     w, v = np.linalg.eigh(np.cov(c.T))
     order = np.argsort(w)[::-1]
@@ -117,6 +120,7 @@ def shape(xyz):
 
 
 def describe(xyz, chain, resi, elem):
+    """Summary of a model: atoms, residues, atoms per residue, SMAP mass, chains, elements and shape."""
     nres = len(set(zip(chain.tolist(), resi.tolist())))
     s, _, _ = shape(xyz)
     return dict(atoms=int(len(xyz)), residues=int(nres), atoms_per_residue=round(len(xyz) / max(1, nres), 2),
@@ -125,6 +129,8 @@ def describe(xyz, chain, resi, elem):
 
 
 def trim(xyz, chain, resi, n_target, mode, target_sigma=None):
+    """Mask of the atoms to keep: whole residues nearest the centre until n_target atoms are reached.
+    Distance: Euclidean (sphere) or scaled by the target's principal-axis SDs (ellipsoid)."""
     keys = list(zip(chain.tolist(), resi.tolist()))
     uniq = list(dict.fromkeys(keys))
     idx = {k: i for i, k in enumerate(uniq)}

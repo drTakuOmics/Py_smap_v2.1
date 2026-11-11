@@ -36,10 +36,13 @@ from scipy.special import erfc, erfcinv
 
 
 def gaussian_tail(x):
+    """One-sided tail probability of a standard normal variable: P(z > x)."""
     return erfc(np.asarray(x, dtype=np.float64) / math.sqrt(2)) / 2
 
 
 def threshold_for(n_trials: float, n_false: float = 1.0) -> float:
+    """Score exceeded by n_false of n_trials independent standard-normal values
+    (n_false = 1: v2.1's one-false-positive cutoff)."""
     return float(math.sqrt(2) * erfcinv(2.0 * n_false / n_trials))
 
 

@@ -53,10 +53,12 @@ def _retry(fn, *args, tries: int = 6, wait: float = 30.0):
 
 
 def listing(url: str) -> list:
+    """File names in a directory listing of the archive (with retries)."""
     return _retry(_listing, url)
 
 
 def _listing(url: str) -> list:
+    """File names linked from one directory listing page."""
     with urllib.request.urlopen(url, timeout=120) as r:
         html = r.read().decode("utf-8", "replace")
     names = re.findall(r'href="([^"?]+)"', html)
@@ -64,6 +66,7 @@ def _listing(url: str) -> list:
 
 
 def size_of(url: str) -> int:
+    """Size of a remote file in bytes, from a HEAD request (-1 if the server does not give it)."""
     req = urllib.request.Request(url, method="HEAD")
     with urllib.request.urlopen(req, timeout=60) as r:
         return int(r.headers.get("Content-Length") or -1)
@@ -75,6 +78,7 @@ def download(url: str, path: Path) -> Path:
 
 
 def _download(url: str, path: Path) -> Path:
+    """Download url to path, resuming a partial '.part' file; an existing file is kept."""
     path = Path(path)
     if path.exists():
         return path
@@ -97,10 +101,12 @@ def _download(url: str, path: Path) -> Path:
 # ------------------------------------------------------------------ cisTEM database
 
 def _tables(con):
+    """Table names of an SQLite database."""
     return [r[0] for r in con.execute("select name from sqlite_master where type='table'")]
 
 
 def _cols(con, t):
+    """Column names of a table."""
     return [r[1] for r in con.execute(f"pragma table_info('{t}')")]
 
 
@@ -118,6 +124,7 @@ def read_db(db: Path, snr_min: float = 7.75) -> tuple:
     ic, cc = tabs[img], tabs[ctf]
 
     def pick(cols, *names):
+        """The first of the names that is a column (None if none is)."""
         return next((n for n in names if n in cols), None)
 
     fit = pick(cc, "DETECTED_RING_RESOLUTION", "FIT_RESOLUTION")
@@ -154,6 +161,8 @@ def read_db(db: Path, snr_min: float = 7.75) -> tuple:
 # ------------------------------------------------------------------ .par helpers
 
 def set_keys(lines, values: dict) -> list:
+    """The lines with the given keys set: the first occurrence is replaced, repeats are dropped
+    and keys not present are appended."""
     out, done = [], set()
     for ln in lines:
         t = ln.split()
@@ -213,6 +222,8 @@ def make_sp(template_par: Path, model: Path, name: str, pixel: float, out_dir: P
 # ------------------------------------------------------------------ commands
 
 def cmd_select(a) -> int:
+    """'select': read the cisTEM database of every lamella, rank the tiles by their deposited
+    ribosome detections and write tiles.csv, one .par per tile and target, and the job lists."""
     dest = Path(a.dest).expanduser().resolve()
     rows = []
     for lam in a.lamella:
@@ -345,6 +356,8 @@ def candidates(url: str, available) -> list:
 
 
 def cmd_fetch(a) -> int:
+    """'fetch': download the selected tiles and masks in priority order and write the search
+    images (area outside the beam filled with noise). Missing files go to fetch_failed.txt."""
     from smap import io as sio
     dest = Path(a.dest).expanduser().resolve()
     rows = list(csv.DictReader(open(dest / "tiles.csv")))

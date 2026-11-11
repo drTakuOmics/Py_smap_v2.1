@@ -46,16 +46,19 @@ def tile_psd(im: np.ndarray, n: int) -> np.ndarray:
 
 
 def model_ctf2(n: int, params: dict, df_row) -> np.ndarray:
+    """CTF squared (n, n) from the port's own CTF function for one defocus row [df1 nm, df2 nm, angle rad]."""
     from smap.ctf import ctf
     return np.imag(ctf(np.atleast_2d(df_row), [n, n], params)[:, :, 0]) ** 2
 
 
 def _highpass(x, sigma):
+    """x minus its Gaussian-smoothed copy (removes the smooth background)."""
     from scipy.ndimage import gaussian_filter
     return x - gaussian_filter(x, sigma)
 
 
 def score(A_hp, M, band, sigma) -> float:
+    """Pearson correlation, inside the resolution band, of the high-passed spectrum with the high-passed model."""
     m = _highpass(M, sigma)[band]
     a = A_hp[band]
     m, a = m - m.mean(), a - a.mean()
@@ -64,6 +67,9 @@ def score(A_hp, M, band, sigma) -> float:
 
 def check(params: dict, im: np.ndarray, tile: int = 512, band_A=(30.0, 4.0), sigma: float = 4.0,
           scan_A: float = 1000.0, step_A: float = 50.0):
+    """Scores of the .par defocus against the Thon rings: as given, with the astigmatism angle
+    flipped, with df1 and df2 swapped, and the best common defocus offset within +/- scan_A.
+    Returns (scores, high-passed amplitude spectrum, band mask, model CTF squared)."""
     from smap.utils import get_ks
     a = float(params["aPerPix"])
     df = np.atleast_1d(np.asarray(params["defocus"], dtype=np.float64)).copy()[:3]

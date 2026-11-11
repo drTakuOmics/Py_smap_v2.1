@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import sys
 import time
@@ -35,6 +34,8 @@ LINK = ["search_mip_scaled.mrc", "search_mip.mrc", "search_mip_qInds.mrc", "sear
 
 
 def load_maps(src: Path):
+    """Saved search maps of a finished search: flat-fielded values, orientation indices and
+    search_status.json."""
     from smap import io as sio
     need = ["search_vals.mrc", "search_qInds.mrc", "search_mean.mrc", "search_SD.mrc", "search_status.json"]
     miss = [n for n in need if not (src / n).exists()]
@@ -54,6 +55,8 @@ def count_clusters(ff: np.ndarray, thr: float) -> int:
 
 
 def choose(ff, st0, thr, max_cand, log=print):
+    """Refinement threshold: the one given, or the lowest of 6.0-7.0 that keeps the number of
+    clusters within max_cand (never below the search's arbThr). Returns (threshold, counts)."""
     arb = float(st0.get("raw_preselection_threshold", 6.0))
     counts = {t: count_clusters(ff, t) for t in (6.0, 6.25, 6.5, 6.75, 7.0)}
     log("clusters per optThr (before merging planes): " + ", ".join(f"{t:g}: {n}" for t, n in counts.items()))
@@ -64,6 +67,8 @@ def choose(ff, st0, thr, max_cand, log=print):
 
 
 def rerefine(par: Path, src: Path, out: Path, thr: float, device: str, log=print) -> int:
+    """Repeat clustering, refinement and optimisation from the saved maps of src with the
+    threshold thr, into out. Returns the number of candidates with final score >= the search cutoff."""
     from smap import io as sio
     from smap.refine import optimize_particles, refine_particles, select_particles, write_final
     from smap.search_global import prepare

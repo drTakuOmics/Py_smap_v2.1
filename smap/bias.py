@@ -44,6 +44,7 @@ from . import io as sio
 
 
 def omit_mask(t_full: np.ndarray, t_omit: np.ndarray, frac: float = 0.2, top_k: int = 100) -> np.ndarray:
+    """Mask M of the omitted region: T_full - T_omit > frac x mean of the top_k difference voxels."""
     d = np.asarray(t_full, np.float64) - np.asarray(t_omit, np.float64)
     flat = np.sort(d.ravel())[::-1]
     k = min(top_k, flat.size)
@@ -52,6 +53,7 @@ def omit_mask(t_full: np.ndarray, t_omit: np.ndarray, frac: float = 0.2, top_k: 
 
 
 def envelope(t: np.ndarray, frac: float = 0.05) -> np.ndarray:
+    """Voxels above frac of the template maximum."""
     t = np.asarray(t, np.float64)
     return t > frac * float(t.max())
 
@@ -65,6 +67,7 @@ def match_scale(v_ref: np.ndarray, v: np.ndarray, region: np.ndarray) -> tuple[f
 
 
 def omega(v_full: np.ndarray, v_omit: np.ndarray, mask: np.ndarray) -> float:
+    """Omega = sum_M (V_full - V_omit) / sum_M V_full (NaN when the denominator is 0)."""
     den = float(v_full[mask].sum())
     return float((v_full[mask] - v_omit[mask]).sum() / den) if den != 0 else float("nan")
 
@@ -76,6 +79,8 @@ def kept_fraction(t_full, t_omit, mask) -> float:
 
 def template_bias(v_full, v_omit, t_full, t_omit, frac: float = 0.2, top_k: int = 100, gap: int = 3,
                   min_region_voxels: int = 10) -> dict:
+    """Omega (raw, scale-matched and normalised) of an omit reconstruction, overall and per
+    connected region of M, with the recovery correlation. The four volumes share one grid."""
     v_full, v_omit = np.asarray(v_full, np.float64), np.asarray(v_omit, np.float64)
     if not (v_full.shape == v_omit.shape == np.shape(t_full) == np.shape(t_omit)):
         raise ValueError("maps and templates must share one grid (resample them first)")
