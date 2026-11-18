@@ -703,7 +703,8 @@ function mountKeypad(spec){
      see-through: cathode, beam, condenser coils, sample, objective coil, projector coils, detector.
      data: detector cable; micrograph / z-score slab with height field; detection pins; scanning template card;
        found model rising from the best peak.
-     template bank (right): back wall with 12 projection cards (one orientation each); the atomic model on a post;
+     template bank (right): back wall with 12 projection cards (one orientation each); the atomic model on a post
+       (purified protein: 20S proteasome; cells: ribosome LSU + SSU);
        rays model -> cards; links cards -> scanning template (the network of projections). */
 const hbW = 86, hbD = 190, hbH = 80;
 const COL = [32, 170];                                     // microscope column axis (x, y)
@@ -713,7 +714,7 @@ const NX = 22, NY = 24;                                     // height-field cell
 const WALL = { x0: 8, x1: 12, y0: 4, y1: 70, z1: 62 };      // template bank wall
 const MODEL0 = [56, 12, 24];                                // atomic model centre (on its post)
 const COPPER = { l:'#e7a36b', m:'#c98551', d:'#7f4c26' };
-const DOMAIN = { narm:'#28b9d0', aaa:'#efa440', e3:'#9775cf', ctd:'#63b995', e2:'#edcf55', lsu:'#76a0e2', ssu:'#f4b829' };
+const DOMAIN = { alpha:'#28b9d0', beta:'#efa440', lsu:'#76a0e2', ssu:'#f4b829' };
 const hbRng = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(7);
 const NOISE = Array.from({length:(NX+1)*(NY+1)}, () => hbRng() - .5);
 // particles in the micrograph, in cell units (i along x, j along y), with their search z-score
@@ -726,20 +727,20 @@ const hbRot = (a, b, c) => { const ca=Math.cos(a), sa=Math.sin(a), cb=Math.cos(b
 const hbMul = (R, v) => [R[0][0]*v[0]+R[0][1]*v[1]+R[0][2]*v[2], R[1][0]*v[0]+R[1][1]*v[1]+R[1][2]*v[2], R[2][0]*v[0]+R[2][1]*v[1]+R[2][2]*v[2]];
 
 /* ---------- models (spheres: [x, y, z, r, colour]) ---------- */
-function rnfModel(){
-  const s = [];
-  for (let k = 0; k < 6; k++){ const a = k/6*2*Math.PI; s.push([4.2*Math.cos(a), 4.2*Math.sin(a), 0, 2.3, DOMAIN.aaa]); }   // AAA ring
-  s.push([-7.4, 1.5, 1.2, 2.0, DOMAIN.narm], [-10.4, 3.6, 2.6, 1.8, DOMAIN.narm], [-12.6, 6.4, 3.4, 1.6, DOMAIN.narm]);      // N-arm
-  s.push([2.0, -2.0, 4.6, 2.5, DOMAIN.e3], [5.2, -3.6, 5.6, 2.2, DOMAIN.e3]);                                             // E3 module
-  s.push([1.0, 4.0, 4.4, 2.0, DOMAIN.ctd]);                                                                                // CTD
-  s.push([7.8, -5.6, 7.4, 1.6, DOMAIN.e2]);                                                                                // UBE2L3
+// 20S proteasome core particle: four stacked heptameric rings, alpha7 beta7 beta7 alpha7 (28 subunits, ~700 kDa);
+// a barrel ~15 nm long and ~11 nm wide, drawn as one sphere per subunit (alpha teal, beta amber)
+function proteasomeModel(){
+  const s = [], R = 4.1, r = 1.9;
+  [[-5.85, DOMAIN.alpha], [-1.95, DOMAIN.beta], [1.95, DOMAIN.beta], [5.85, DOMAIN.alpha]].forEach(([z, c]) => {
+    for (let k = 0; k < 7; k++){ const a = k/7*2*Math.PI; s.push([R*Math.cos(a), R*Math.sin(a), z, r, c]); }
+  });
   return s;
 }
 function riboModel(){
   return [[0, 0, 0, 5.4, DOMAIN.lsu], [-3.6, 3.0, 1.0, 3.8, DOMAIN.lsu], [3.4, 2.6, -1.2, 3.6, DOMAIN.lsu],
           [0.6, -3.4, 5.6, 3.6, DOMAIN.ssu], [-2.4, -1.4, 6.8, 2.8, DOMAIN.ssu]];
 }
-const modelOf = st => st.spec === 'cells' ? riboModel() : rnfModel();
+const modelOf = st => st.spec === 'cells' ? riboModel() : proteasomeModel();
 
 /* ---------- template bank: 12 orientations, evenly spread (spiral on the sphere) ---------- */
 const NCARD = 12, CARD_H = 6.6, CARD_W = 6.9;
@@ -750,7 +751,8 @@ const CARDS = Array.from({length:NCARD}, (_, k) => {
 });
 const HITK = 6;                                             // the card whose orientation matches the best particle
 function activeCard(st){ if (st.scan > 0 && st.scan < 1) return Math.floor(st.scan * 96) % NCARD; return st.hit > 0 ? HITK : -1; }
-function modelRot(st){ const k = activeCard(st); return k >= 0 ? CARDS[k].R : hbRot(.9, .8, -.5); }
+function modelRot(st){ const k = activeCard(st);   // at rest: the 20S barrel nearly upright, the ribosome as before
+  return k >= 0 ? CARDS[k].R : st.spec === 'cells' ? hbRot(.9, .8, -.5) : hbRot(.6, .35, 0); }
 // projection glyph: model turned by R, projected along its third axis, drawn into a 2-D frame (u, v) -> 3D point
 function glyph(st, R, map, sc){
   const pts = modelOf(st).map(([mx, my, mz, r]) => { const q = hbMul(R, [mx, my, mz]); return [q[0]*sc, q[1]*sc, q[2], r*sc]; });
@@ -993,12 +995,12 @@ function scene(st, m){
       { at:[MODEL0[0], MODEL0[1], MODEL0[2] + 8], text:'ATOMIC MODEL', on: scanOn },
     ], [0, hbW, 0, hbD, 0, hbH]);
   else {
-    s += tag([MODEL0[0], MODEL0[1], MODEL0[2] + 11], 34, -40, st.spec === 'cells' ? 'ATOMIC MODEL: LSU' : 'ATOMIC MODEL: RNF213', scanOn);
+    s += tag([MODEL0[0], MODEL0[1], MODEL0[2] + 11], 34, -40, st.spec === 'cells' ? 'ATOMIC MODEL: LSU' : 'ATOMIC MODEL: 20S PROTEASOME', scanOn);
     s += tag([WALL.x1, (WALL.y0 + WALL.y1)/2, WALL.z1], 0, -26, 'TEMPLATE BANK', scanOn);
     s += tag([(MIC.x0+MIC.x1)/2 + 10, MIC.y0 + 20, MIC.z + 1], 38, 34, st.scan > 0 ? 'Z-SCORE MAP' : 'MICROGRAPH', scanOn);
     s += tag([COL[0], COL[1], MS(146)], -16, -18, 'CRYO-TEM', st.beam > 0 && st.beam < 1);
     if (st.hit > .8){ const [x, y, z] = bestPeak(st);
-      s += tag([x, y, z + 26], -38, -34, st.spec === 'cells' ? 'RIBOSOME, POSE FOUND' : 'RNF213, POSE FOUND', true); }
+      s += tag([x, y, z + 26], -38, -34, st.spec === 'cells' ? 'RIBOSOME, POSE FOUND' : '20S PROTEASOME, POSE FOUND', true); }
   }
   return s;
 }
